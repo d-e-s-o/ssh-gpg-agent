@@ -1,0 +1,46 @@
+# Cargo.toml
+
+#/***************************************************************************
+# *   Copyright (C) 2019 Daniel Mueller (deso@posteo.net)                   *
+# *                                                                         *
+# *   This program is free software: you can redistribute it and/or modify  *
+# *   it under the terms of the GNU General Public License as published by  *
+# *   the Free Software Foundation, either version 3 of the License, or     *
+# *   (at your option) any later version.                                   *
+# *                                                                         *
+# *   This program is distributed in the hope that it will be useful,       *
+# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+# *   GNU General Public License for more details.                          *
+# *                                                                         *
+# *   You should have received a copy of the GNU General Public License     *
+# *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
+# ***************************************************************************/
+
+[package]
+name = "ssh-gpg-agent"
+version = "0.0.0"
+authors = ["Daniel Mueller <deso@posteo.net>"]
+edition = "2018"
+license = "GPL-3.0-or-later"
+homepage = "https://github.com/d-e-s-o/ssh-gpg-agent"
+repository = "https://github.com/d-e-s-o/ssh-gpg-agent.git"
+categories = [
+  "command-line-utilities",
+  "authentication",
+  "config",
+  "cryptography",
+  "network-programming",
+]
+keywords = [
+  "ssh-agent",
+  "ssh",
+  "gpg",
+  "authentication",
+  "ed25519",
+]
+description = """
+An SSH agent implementation that transparently supports PGP encrypted private SSH keys.
+"""
+
+[dependencies]
