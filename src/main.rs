@@ -24,6 +24,7 @@ mod error;
 mod files;
 mod keys;
 
+use std::collections::HashMap;
 use std::env::temp_dir;
 use std::fs::remove_file;
 use std::io::Error as IoError;
@@ -37,21 +38,40 @@ use log::error;
 
 use ssh_agent::agent::Agent;
 use ssh_agent::proto::message::Message;
+use ssh_agent::proto::public_key::PublicKey;
 
 use crate::error::Result;
 use crate::error::WithCtx;
+use crate::files::public_keys;
+use crate::keys::FromPem;
 
 
 /// The SSH agent supporting GPG encrypted SSH keys.
+///
+/// Upon creation the agent will load public keys that have
+/// corresponding encrypted private keys inside its associated directory
+/// and keep those public keys in memory. It explicitly does not cache
+/// secret key material, but loads it on demand for each and every
+/// request.
 struct GpgKeyAgent {
+  /// A mapping from public keys (i.e., "identities") to paths to
+  /// encrypted private keys. The private keys are loaded on demand for
+  /// signing requests.
+  keys: HashMap<PublicKey, PathBuf>,
 }
 
 impl GpgKeyAgent {
-  fn new<P>(dir: P) -> Self
+  fn new<P>(dir: P) -> Result<Self>
   where
     P: Into<PathBuf>,
   {
-    Self {}
+    let mut keys = HashMap::new();
+    for result in public_keys(dir)? {
+      let (key, path) = result?;
+      let _ = keys.insert(PublicKey::from_pem(key)?, path);
+    }
+
+    Ok(Self { keys })
   }
 
   /// Handle a message to the agent.
@@ -81,7 +101,7 @@ fn main() -> Result<()> {
     .ctx(|| "failed to retrieve home directory")?
     .join(".ssh");
 
-  let agent = GpgKeyAgent::new(ssh_dir);
+  let agent = GpgKeyAgent::new(ssh_dir)?;
   let socket = temp_dir().join("ssh-gpg-agent.sock");
   let _ = remove_file(&socket);
 
