@@ -43,6 +43,12 @@ description = """
 An SSH agent implementation that transparently supports PGP encrypted private SSH keys.
 """
 
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+incremental = false
+
 [dependencies.dirs]
 version = "1.0"
 
