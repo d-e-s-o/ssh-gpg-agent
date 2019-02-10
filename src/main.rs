@@ -20,13 +20,14 @@
 //! `ssh-gpg-agent` is an SSH agent that can transparently handle GPG
 //! encrypted SSH keys.
 
+mod error;
+
 use std::env::temp_dir;
-use std::error::Error as StdError;
 use std::fs::remove_file;
 use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::path::PathBuf;
-use std::result::Result;
+use std::result::Result as StdResult;
 
 use dirs::home_dir;
 
@@ -34,6 +35,9 @@ use log::error;
 
 use ssh_agent::agent::Agent;
 use ssh_agent::proto::message::Message;
+
+use crate::error::Result;
+use crate::error::WithCtx;
 
 
 /// The SSH agent supporting GPG encrypted SSH keys.
@@ -49,7 +53,7 @@ impl GpgKeyAgent {
   }
 
   /// Handle a message to the agent.
-  fn handle_message(&self, request: Message) -> Result<Message, ()> {
+  fn handle_message(&self, request: Message) -> Result<Message> {
     unimplemented!()
   }
 }
@@ -57,7 +61,7 @@ impl GpgKeyAgent {
 impl Agent for GpgKeyAgent {
   type Error = ();
 
-  fn handle(&self, message: Message) -> Result<Message, ()> {
+  fn handle(&self, message: Message) -> StdResult<Message, ()> {
     self.handle_message(message).or_else(|err| {
       error!("Error handling message: {:?}", err);
       Ok(Message::Failure)
@@ -67,17 +71,19 @@ impl Agent for GpgKeyAgent {
 
 
 /// Run the SSH agent.
-fn main() -> Result<(), Box<StdError>> {
+fn main() -> Result<()> {
   env_logger::init();
 
   let ssh_dir = home_dir()
-    .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no home directory found"))?
+    .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no home directory found"))
+    .ctx(|| "failed to retrieve home directory")?
     .join(".ssh");
 
   let agent = GpgKeyAgent::new(ssh_dir);
   let socket = temp_dir().join("ssh-gpg-agent.sock");
   let _ = remove_file(&socket);
 
-  agent.run_unix(&socket)?;
+  agent.run_unix(&socket)
+    .ctx(|| "failed to start agent")?;
   Ok(())
 }
