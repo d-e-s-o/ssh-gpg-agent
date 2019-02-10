@@ -26,6 +26,9 @@ use std::fmt::Result as FmtResult;
 use std::io::Error as IoError;
 use std::ops::Deref;
 use std::result::Result as StdResult;
+use std::str::Utf8Error;
+
+use ssh_keys::Error as SshError;
 
 
 type Str = Cow<'static, str>;
@@ -46,6 +49,8 @@ fn fmt_err(err: &dyn StdError, fmt: &mut Formatter<'_>) -> FmtResult {
 pub enum Error {
   Any(Box<dyn StdError>),
   Io(IoError),
+  SshKey(SshError),
+  Utf8(Utf8Error),
 }
 
 impl Display for Error {
@@ -53,6 +58,8 @@ impl Display for Error {
     match self {
       Error::Any(err) => fmt_err(err.deref(), f),
       Error::Io(err) => fmt_err(err, f),
+      Error::SshKey(err) => fmt_err(err, f),
+      Error::Utf8(err) => fmt_err(err, f),
     }
   }
 }
@@ -66,6 +73,18 @@ impl From<Box<dyn StdError>> for Error {
 impl From<IoError> for Error {
   fn from(e: IoError) -> Self {
     Error::Io(e)
+  }
+}
+
+impl From<SshError> for Error {
+  fn from(e: SshError) -> Self {
+    Error::SshKey(e)
+  }
+}
+
+impl From<Utf8Error> for Error {
+  fn from(e: Utf8Error) -> Self {
+    Error::Utf8(e)
   }
 }
 

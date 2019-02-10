@@ -21,6 +21,8 @@
 //! encrypted SSH keys.
 
 mod error;
+mod files;
+mod keys;
 
 use std::env::temp_dir;
 use std::fs::remove_file;
