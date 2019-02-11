@@ -28,6 +28,8 @@ use std::ops::Deref;
 use std::result::Result as StdResult;
 use std::str::Utf8Error;
 
+use gpgme::Error as GpgError;
+
 use ssh_agent::proto::error::ProtoError;
 
 use ssh_keys::Error as SshError;
@@ -50,6 +52,7 @@ fn fmt_err(err: &dyn StdError, fmt: &mut Formatter<'_>) -> FmtResult {
 #[derive(Debug)]
 pub enum Error {
   Any(Box<dyn StdError>),
+  Gpg(GpgError),
   Io(IoError),
   SshKey(SshError),
   SshProto(ProtoError),
@@ -60,6 +63,7 @@ impl Display for Error {
   fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
     match self {
       Error::Any(err) => fmt_err(err.deref(), f),
+      Error::Gpg(err) => fmt_err(err, f),
       Error::Io(err) => fmt_err(err, f),
       Error::SshKey(err) => fmt_err(err, f),
       Error::SshProto(err) => fmt_err(err, f),
@@ -71,6 +75,12 @@ impl Display for Error {
 impl From<Box<dyn StdError>> for Error {
   fn from(e: Box<dyn StdError>) -> Self {
     Error::Any(e)
+  }
+}
+
+impl From<GpgError> for Error {
+  fn from(e: GpgError) -> Self {
+    Error::Gpg(e)
   }
 }
 

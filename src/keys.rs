@@ -17,16 +17,24 @@
 // * along with this program.  If not, see <http://www.gnu.org/licenses/>. *
 // *************************************************************************
 
+use std::error::Error as StdError;
+use std::ops::DerefMut;
 use std::str::from_utf8 as str_from_utf8;
 
+use ssh_agent::proto::private_key::Ed25519PrivateKey;
+use ssh_agent::proto::private_key::PrivateKey;
 use ssh_agent::proto::public_key::Ed25519PublicKey;
 use ssh_agent::proto::public_key::PublicKey;
 
+use ssh_keys::openssh::parse_private_key;
 use ssh_keys::openssh::parse_public_key;
+use ssh_keys::PrivateKey as SshPrivateKey;
 use ssh_keys::PublicKey as SshPublicKey;
 
+use crate::error::Error;
 use crate::error::Result;
 use crate::error::WithCtx;
+use crate::files::PemPrivateKey;
 use crate::files::PemPublicKey;
 
 
@@ -44,12 +52,53 @@ fn convert_pub(key: SshPublicKey) -> PublicKey {
 }
 
 
+/// Convert an ssh_keys PrivateKey into an ssh_agent PrivateKey.
+fn convert_priv(key: SshPrivateKey) -> PrivateKey {
+  match key {
+    SshPrivateKey::Rsa { .. } => unimplemented!(),
+    SshPrivateKey::Ed25519(data) => {
+      let mut key = data.to_vec();
+      let public = key.split_off(32);
+      let seed = key;
+
+      let ed25519 = Ed25519PrivateKey {
+        enc_a: public,
+        k_enc_a: seed,
+      };
+      PrivateKey::Ed25519(ed25519)
+    },
+  }
+}
+
+
 /// A trait for construction from PEM encoded data.
 pub trait FromPem<K>
 where
   Self: Sized,
 {
   fn from_pem(pem_key: K) -> Result<Self>;
+}
+
+impl FromPem<PemPrivateKey> for PrivateKey {
+  fn from_pem(pem_key: PemPrivateKey) -> Result<Self> {
+    let data = Vec::<_>::from(pem_key);
+    let string = str_from_utf8(&data)
+      .ctx(|| "failed to convert private key to string")?;
+
+    // Note that the SSH format actually supports having multiple keys
+    // inside a single file...
+    let mut keys = parse_private_key(string)
+      .ctx(|| "failed to parse private key")?;
+
+    // ... but we don't :)
+    match keys.deref_mut() {
+      [_] => Ok(convert_priv(keys.swap_remove(0))),
+      _ => {
+        let err = Box::<dyn StdError>::from("private key file contains unsupported number of keys");
+        Err(Error::Any(err)).ctx(|| "failed to read PEM encoded private key")
+      }
+    }
+  }
 }
 
 impl FromPem<PemPublicKey> for PublicKey {

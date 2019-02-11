@@ -24,6 +24,9 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
+use gpgme::Context;
+use gpgme::Protocol;
+
 use crate::error::Result;
 use crate::error::WithCtx;
 
@@ -44,6 +47,36 @@ impl From<PemPublicKey> for Vec<u8> {
   fn from(key: PemPublicKey) -> Self {
     key.0
   }
+}
+
+
+/// A private key in PEM encoded form, as it was loaded from file.
+#[derive(Debug)]
+pub struct PemPrivateKey(Vec<u8>);
+
+impl From<PemPrivateKey> for Vec<u8> {
+  fn from(key: PemPrivateKey) -> Self {
+    key.0
+  }
+}
+
+
+/// Load a private SSH key from the given file. The file is assumed to
+/// be GPG encrypted.
+#[allow(unused)]
+pub fn load_private_key(file: &Path) -> Result<PemPrivateKey> {
+  let mut input = File::open(file)
+    .ctx(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
+
+  let mut gpg = Context::from_protocol(Protocol::OpenPgp)
+    .ctx(|| "failed to connect to GPG")?;
+
+  let mut output = Vec::new();
+  let _ = gpg
+    .decrypt(&mut input, &mut output)
+    .ctx(|| format!("failed to decrypt {}", file.to_string_lossy()))?;
+
+  Ok(PemPrivateKey(output))
 }
 
 
