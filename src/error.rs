@@ -28,6 +28,8 @@ use std::ops::Deref;
 use std::result::Result as StdResult;
 use std::str::Utf8Error;
 
+use ssh_agent::proto::error::ProtoError;
+
 use ssh_keys::Error as SshError;
 
 
@@ -50,6 +52,7 @@ pub enum Error {
   Any(Box<dyn StdError>),
   Io(IoError),
   SshKey(SshError),
+  SshProto(ProtoError),
   Utf8(Utf8Error),
 }
 
@@ -59,6 +62,7 @@ impl Display for Error {
       Error::Any(err) => fmt_err(err.deref(), f),
       Error::Io(err) => fmt_err(err, f),
       Error::SshKey(err) => fmt_err(err, f),
+      Error::SshProto(err) => fmt_err(err, f),
       Error::Utf8(err) => fmt_err(err, f),
     }
   }
@@ -79,6 +83,12 @@ impl From<IoError> for Error {
 impl From<SshError> for Error {
   fn from(e: SshError) -> Self {
     Error::SshKey(e)
+  }
+}
+
+impl From<ProtoError> for Error {
+  fn from(e: ProtoError) -> Self {
+    Error::SshProto(e)
   }
 }
 

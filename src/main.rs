@@ -26,6 +26,7 @@ mod keys;
 
 use std::collections::HashMap;
 use std::env::temp_dir;
+use std::error::Error as StdError;
 use std::fs::remove_file;
 use std::io::Error as IoError;
 use std::io::ErrorKind;
@@ -35,11 +36,15 @@ use std::result::Result as StdResult;
 use dirs::home_dir;
 
 use log::error;
+use log::info;
 
 use ssh_agent::agent::Agent;
+use ssh_agent::proto::Blob;
+use ssh_agent::proto::message::Identity;
 use ssh_agent::proto::message::Message;
 use ssh_agent::proto::public_key::PublicKey;
 
+use crate::error::Error;
 use crate::error::Result;
 use crate::error::WithCtx;
 use crate::files::public_keys;
@@ -74,9 +79,40 @@ impl GpgKeyAgent {
     Ok(Self { keys })
   }
 
+  /// Handle a request for all known identities.
+  fn identities(&self) -> Result<Vec<Identity>> {
+    let mut idents = Vec::new();
+    for key in self.keys.keys() {
+      let pubkey = key.clone()
+        .to_blob()
+        .ctx(|| "failed to serialize private key")?;
+
+      let ident = Identity {
+        pubkey_blob: pubkey,
+        // The ssh-keys crate currently does not support handling of
+        // comments and so we just fill in an empty string here.
+        comment: String::new(),
+      };
+
+      idents.push(ident);
+    }
+    Ok(idents)
+  }
+
   /// Handle a message to the agent.
   fn handle_message(&self, request: Message) -> Result<Message> {
-    unimplemented!()
+    info!("Request: {:?}", request);
+    let response = match request {
+      Message::RequestIdentities => {
+        Ok(Message::IdentitiesAnswer(self.identities()?))
+      },
+      _ => {
+        let err = Box::<dyn StdError>::from(format!("received unsupported message: {:?}", request));
+        Err(Error::Any(err)).ctx(|| "failed to handle agent request")
+      },
+    };
+    info!("Response {:?}", response);
+    response
   }
 }
 
