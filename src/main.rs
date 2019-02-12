@@ -70,6 +70,7 @@
 mod error;
 mod files;
 mod keys;
+mod sign;
 
 use std::collections::HashMap;
 use std::env::temp_dir;
@@ -87,15 +88,21 @@ use log::info;
 
 use ssh_agent::agent::Agent;
 use ssh_agent::proto::Blob;
+use ssh_agent::proto::from_bytes;
 use ssh_agent::proto::message::Identity;
 use ssh_agent::proto::message::Message;
+use ssh_agent::proto::message::SignatureBlob;
+use ssh_agent::proto::message::SignRequest;
+use ssh_agent::proto::private_key::PrivateKey;
 use ssh_agent::proto::public_key::PublicKey;
 
 use crate::error::Error;
 use crate::error::Result;
 use crate::error::WithCtx;
+use crate::files::load_private_key;
 use crate::files::public_keys;
 use crate::keys::FromPem;
+use crate::sign::Signer;
 
 
 /// The SSH agent supporting GPG encrypted SSH keys.
@@ -146,12 +153,41 @@ impl GpgKeyAgent {
     Ok(idents)
   }
 
+  /// Load the private key corresponding to the given public key.
+  fn find_private_key(&self, pubkey: &PublicKey) -> Option<PathBuf> {
+    self
+      .keys
+      .get(pubkey)
+      .cloned()
+  }
+
+  /// Handle a sign request.
+  fn sign(&self, request: &SignRequest) -> Result<SignatureBlob> {
+    let pubkey = from_bytes::<PublicKey>(&request.pubkey_blob)
+      .ctx(|| "failed to convert public key blob back to public key")?;
+
+    if let Some(file) = self.find_private_key(&pubkey) {
+      let key = PrivateKey::from_pem(load_private_key(&file)?)?;
+      let sig = key.sign(&request.data)?;
+        //.ctx(|| "failed to sign request data")?;
+      let blob = sig.to_blob()
+        .ctx(|| "failed to serialized signature")?;
+      Ok(blob)
+    } else {
+      let err = Box::<dyn StdError>::from("identity not found");
+      Err(Error::Any(err)).ctx(|| "failed to create signature")
+    }
+  }
+
   /// Handle a message to the agent.
   fn handle_message(&self, request: Message) -> Result<Message> {
     info!("Request: {:?}", request);
     let response = match request {
       Message::RequestIdentities => {
         Ok(Message::IdentitiesAnswer(self.identities()?))
+      },
+      Message::SignRequest(request) => {
+        Ok(Message::SignResponse(self.sign(&request)?))
       },
       _ => {
         let err = Box::<dyn StdError>::from(format!("received unsupported message: {:?}", request));

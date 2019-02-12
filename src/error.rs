@@ -30,6 +30,8 @@ use std::str::Utf8Error;
 
 use gpgme::Error as GpgError;
 
+use ring::error::KeyRejected;
+
 use ssh_agent::proto::error::ProtoError;
 
 use ssh_keys::Error as SshError;
@@ -54,6 +56,7 @@ pub enum Error {
   Any(Box<dyn StdError>),
   Gpg(GpgError),
   Io(IoError),
+  Ring(KeyRejected),
   SshKey(SshError),
   SshProto(ProtoError),
   Utf8(Utf8Error),
@@ -65,6 +68,7 @@ impl Display for Error {
       Error::Any(err) => fmt_err(err.deref(), f),
       Error::Gpg(err) => fmt_err(err, f),
       Error::Io(err) => fmt_err(err, f),
+      Error::Ring(err) => fmt_err(err, f),
       Error::SshKey(err) => fmt_err(err, f),
       Error::SshProto(err) => fmt_err(err, f),
       Error::Utf8(err) => fmt_err(err, f),
@@ -87,6 +91,12 @@ impl From<GpgError> for Error {
 impl From<IoError> for Error {
   fn from(e: IoError) -> Self {
     Error::Io(e)
+  }
+}
+
+impl From<KeyRejected> for Error {
+  fn from(e: KeyRejected) -> Self {
+    Error::Ring(e)
   }
 }
 

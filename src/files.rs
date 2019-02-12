@@ -63,7 +63,6 @@ impl From<PemPrivateKey> for Vec<u8> {
 
 /// Load a private SSH key from the given file. The file is assumed to
 /// be GPG encrypted.
-#[allow(unused)]
 pub fn load_private_key(file: &Path) -> Result<PemPrivateKey> {
   let mut input = File::open(file)
     .ctx(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
