@@ -44,6 +44,9 @@ description = """
 An SSH agent implementation that transparently supports PGP encrypted private SSH keys.
 """
 
+[badges]
+gitlab = { repository = "d-e-s-o/ssh-gpg-agent", branch = "master" }
+
 [profile.release]
 opt-level = "z"
 lto = true
