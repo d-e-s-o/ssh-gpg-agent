@@ -73,6 +73,7 @@ mod keys;
 mod sign;
 
 use std::collections::HashMap;
+use std::env::args_os;
 use std::env::temp_dir;
 use std::error::Error as StdError;
 use std::fs::remove_file;
@@ -215,12 +216,16 @@ impl Agent for GpgKeyAgent {
 fn main() -> Result<()> {
   env_logger::init();
 
-  let ssh_dir = home_dir()
-    .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no home directory found"))
-    .ctx(|| "failed to retrieve home directory")?
-    .join(".ssh");
+  let dir = if let Some(dir) = args_os().nth(1) {
+    dir.into()
+  } else {
+    home_dir()
+      .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no home directory found"))
+      .ctx(|| "failed to retrieve home directory")?
+      .join(".ssh")
+  };
 
-  let agent = GpgKeyAgent::new(ssh_dir)?;
+  let agent = GpgKeyAgent::new(dir)?;
   let socket = temp_dir().join("ssh-gpg-agent.sock");
   let _ = remove_file(&socket);
 
