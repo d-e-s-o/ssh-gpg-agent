@@ -5,6 +5,8 @@
 ssh-gpg-agent
 =============
 
+- [Changelog](CHANGELOG.md)
+
 **ssh-gpg-agent** is an alternative SSH agent implementation that
 transparently supports PGP encrypted private SSH keys, instead of
 relying on password protection. Unlike SSH agents as provided by GnuPG
