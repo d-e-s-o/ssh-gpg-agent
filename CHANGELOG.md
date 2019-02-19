@@ -1,5 +1,6 @@
 Unreleased
 ----------
+- Load public keys on demand instead of caching them
 - Decreased binary size by disabling default features for `env_logger`
 
 

@@ -72,7 +72,6 @@ mod files;
 mod keys;
 mod sign;
 
-use std::collections::HashMap;
 use std::env::args_os;
 use std::env::temp_dir;
 use std::error::Error as StdError;
@@ -106,6 +105,28 @@ use crate::keys::FromPem;
 use crate::sign::Signer;
 
 
+trait Mapper<T, E>
+where
+  Self: Sized,
+{
+  fn map_flat<F, U>(self, f: F) -> StdResult<U, E>
+  where
+    F: FnMut(T) -> StdResult<U, E>;
+}
+
+impl<T, E> Mapper<T, E> for StdResult<T, E> {
+  fn map_flat<F, U>(self, mut f: F) -> StdResult<U, E>
+  where
+    F: FnMut(T) -> StdResult<U, E>,
+  {
+    match self {
+      Ok(val) => f(val),
+      Err(err) => Err(err),
+    }
+  }
+}
+
+
 /// The SSH agent supporting GPG encrypted SSH keys.
 ///
 /// Upon creation the agent will load public keys that have
@@ -114,36 +135,39 @@ use crate::sign::Signer;
 /// secret key material, but loads it on demand for each and every
 /// request.
 struct GpgKeyAgent {
-  /// A mapping from public keys (i.e., "identities") to paths to
-  /// encrypted private keys. The private keys are loaded on demand for
-  /// signing requests.
-  keys: HashMap<PublicKey, PathBuf>,
+  /// The directory in which to look for SSH key pairs.
+  dir: PathBuf,
 }
 
 impl GpgKeyAgent {
-  fn new<P>(dir: P) -> Result<Self>
+  fn new<P>(dir: P) -> Self
   where
     P: Into<PathBuf>,
   {
-    let mut keys = HashMap::new();
-    for result in public_keys(dir)? {
-      let (key, path) = result?;
-      let _ = keys.insert(PublicKey::from_pem(key)?, path);
-    }
+    Self { dir: dir.into() }
+  }
 
-    Ok(Self { keys })
+  /// Retrieve the agent's public keys.
+  fn public_keys(&self) -> Result<impl Iterator<Item = Result<(PublicKey, PathBuf)>>> {
+    let keys = public_keys(self.dir.clone())?
+      .map(|x| {
+        x.map_flat(|(key, path)| {
+          PublicKey::from_pem(key)
+            .map(|x| (x, path))
+        })
+      });
+    Ok(keys)
   }
 
   /// Handle a request for all known identities.
   fn identities(&self) -> Result<Vec<Identity>> {
     let mut idents = Vec::new();
-    for key in self.keys.keys() {
-      let pubkey = key.clone()
-        .to_blob()
+    for result in self.public_keys()? {
+      let pubkey = result?.0;
+      let blob = pubkey.to_blob()
         .ctx(|| "failed to serialize private key")?;
-
       let ident = Identity {
-        pubkey_blob: pubkey,
+        pubkey_blob: blob,
         // The ssh-keys crate currently does not support handling of
         // comments and so we just fill in an empty string here.
         comment: String::new(),
@@ -155,11 +179,20 @@ impl GpgKeyAgent {
   }
 
   /// Load the private key corresponding to the given public key.
-  fn find_private_key(&self, pubkey: &PublicKey) -> Option<PathBuf> {
-    self
-      .keys
-      .get(pubkey)
-      .cloned()
+  fn find_private_key(&self, pubkey: &PublicKey) -> Option<Result<PathBuf>> {
+    match self.public_keys() {
+      Ok(mut keys) => keys.find_map(|x| match x {
+        Ok((key, path)) => {
+          if &key == pubkey {
+            Some(Ok(path))
+          } else {
+            None
+          }
+        }
+        Err(err) => Some(Err(err)),
+      }),
+      Err(err) => Some(Err(err)),
+    }
   }
 
   /// Handle a sign request.
@@ -168,7 +201,7 @@ impl GpgKeyAgent {
       .ctx(|| "failed to convert public key blob back to public key")?;
 
     if let Some(file) = self.find_private_key(&pubkey) {
-      let key = PrivateKey::from_pem(load_private_key(&file)?)?;
+      let key = PrivateKey::from_pem(load_private_key(&file?)?)?;
       let sig = key.sign(&request.data)?;
         //.ctx(|| "failed to sign request data")?;
       let blob = sig.to_blob()
@@ -225,7 +258,7 @@ fn main() -> Result<()> {
       .join(".ssh")
   };
 
-  let agent = GpgKeyAgent::new(dir)?;
+  let agent = GpgKeyAgent::new(dir);
   let socket = temp_dir().join("ssh-gpg-agent.sock");
   let _ = remove_file(&socket);
 

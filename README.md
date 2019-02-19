@@ -137,12 +137,10 @@ typical work flows:
 - It is no longer necessary to `ssh-add` keys to an agent, which is just
   an opaque second-tier key management mechanism that often is a source
   of confusion and/or its involvement simply forgotten
-- The agent is effectively stateless: private keys are never cached and
-  decrypted for every authentication request; while in the current
-  implementation public keys are cached that does not have to be the
-  case and poses no security concern (note that a `gpg-agent` being used
-  will still be stateful, but this agent does not introduce additional
-  state to manage)
+- The agent is stateless: public keys are loaded on demand; private keys
+  are never cached and instead decrypted for every authentication
+  request (note that a `gpg-agent` being used will still be stateful,
+  but this agent does not introduce additional state to manage)
 - When used in conjunction with a smart card that stores the GnuPG
   identity's key, physically removing the card is enough to prevent
   further usage SSH keys managed through the agent
