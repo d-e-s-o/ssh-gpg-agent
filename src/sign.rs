@@ -62,3 +62,24 @@ impl Signer for PrivateKey {
     Ok(sig)
   }
 }
+
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  use crate::files::test::load_unencrypted_private_key;
+  use crate::keys::FromPem;
+
+
+  /// Test the signing of data with an ed25519 private key.
+  #[test]
+  fn sign_ed25519() -> Result<()> {
+    let privkey = load_unencrypted_private_key("tests/valid_keys/ed25519")?;
+    let privkey = PrivateKey::from_pem(privkey)?;
+
+    let data = "test-data";
+    let _ = privkey.sign(data.as_bytes())?;
+    Ok(())
+  }
+}

@@ -80,7 +80,11 @@ pub fn load_private_key(file: &Path) -> Result<PemPrivateKey> {
 
 
 /// Load a public SSH key from the given file.
-fn load_public_key(file: &Path) -> Result<PemPublicKey> {
+fn load_public_key<P>(file: P) -> Result<PemPublicKey>
+where
+  P: AsRef<Path>,
+{
+  let file = file.as_ref();
   let mut f = File::open(file)
     .ctx(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
 
@@ -130,4 +134,74 @@ where
         })),
       })
     })
+}
+
+
+#[cfg(test)]
+pub mod test {
+  use super::*;
+
+  use crate::keys::FromPem;
+
+  use ssh_agent::proto::private_key::PrivateKey;
+  use ssh_agent::proto::public_key::PublicKey;
+
+
+  /// Load a private key from a plain text file. This function is for
+  /// testing only. Throughout the program we assume GPG encrypted
+  /// private keys.
+  pub fn load_unencrypted_private_key<P>(file: P) -> Result<PemPrivateKey>
+  where
+    P: AsRef<Path>,
+  {
+    let file = file.as_ref();
+    let mut input = File::open(file)
+      .ctx(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
+
+    let mut output = Vec::new();
+    let _ = input.read_to_end(&mut output)
+      .ctx(|| format!("failed to read data from {}", file.to_string_lossy()))?;
+
+    Ok(PemPrivateKey(output))
+  }
+
+
+  /// Verify that we can load our test key.
+  #[test]
+  fn load_public_keys() -> Result<()> {
+    let mut keys = public_keys("tests/valid_keys")?;
+    let (_, path) = keys.next().unwrap()?;
+    assert_eq!(path.to_str().unwrap(), "tests/valid_keys/ed25519.gpg");
+    assert!(keys.next().is_none());
+    Ok(())
+  }
+
+
+  /// Verify that invalid keys are not loaded.
+  #[test]
+  fn dont_load_invalid_public_keys() -> Result<()> {
+    let keys = public_keys("tests/invalid_keys")?;
+    assert_eq!(keys.count(), 0);
+    Ok(())
+  }
+
+
+  /// Test the conversion into of an ed25519 public key object loaded
+  /// from file into an ssh_agent style PublicKey.
+  #[test]
+  fn public_key_conversion_ed25519() -> Result<()> {
+    let pubkey = load_public_key("tests/valid_keys/ed25519.pub")?;
+    let _ = PublicKey::from_pem(pubkey)?;
+    Ok(())
+  }
+
+
+  /// Test the conversion into of an ed25519 private key object loaded
+  /// from file into an ssh_agent style PrivateKey.
+  #[test]
+  fn private_key_conversion_ed25519() -> Result<()> {
+    let privkey = load_unencrypted_private_key("tests/valid_keys/ed25519")?;
+    let _ = PrivateKey::from_pem(privkey)?;
+    Ok(())
+  }
 }
