@@ -17,7 +17,6 @@
 // * along with this program.  If not, see <http://www.gnu.org/licenses/>. *
 // *************************************************************************
 
-use std::error::Error as StdError;
 use std::ops::DerefMut;
 use std::str::from_utf8 as str_from_utf8;
 
@@ -94,7 +93,7 @@ impl FromPem<PemPrivateKey> for PrivateKey {
     match keys.deref_mut() {
       [_] => Ok(convert_priv(keys.swap_remove(0))),
       _ => {
-        let err = Box::<dyn StdError>::from("private key file contains unsupported number of keys");
+        let err = Box::<_>::from("private key file contains unsupported number of keys");
         Err(Error::Any(err)).ctx(|| "failed to read PEM encoded private key")
       }
     }

@@ -74,7 +74,6 @@ mod sign;
 
 use std::env::args_os;
 use std::env::temp_dir;
-use std::error::Error as StdError;
 use std::fs::remove_file;
 use std::io::Error as IoError;
 use std::io::ErrorKind;
@@ -208,7 +207,7 @@ impl GpgKeyAgent {
         .ctx(|| "failed to serialized signature")?;
       Ok(blob)
     } else {
-      let err = Box::<dyn StdError>::from("identity not found");
+      let err = Box::<_>::from("identity not found");
       Err(Error::Any(err)).ctx(|| "failed to create signature")
     }
   }
@@ -224,7 +223,7 @@ impl GpgKeyAgent {
         Ok(Message::SignResponse(self.sign(&request)?))
       },
       _ => {
-        let err = Box::<dyn StdError>::from(format!("received unsupported message: {:?}", request));
+        let err = Box::<_>::from(format!("received unsupported message: {:?}", request));
         Err(Error::Any(err)).ctx(|| "failed to handle agent request")
       },
     };
