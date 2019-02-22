@@ -18,6 +18,7 @@
 // *************************************************************************
 
 use ssh_agent::proto::key_type::KeyTypeEnum;
+use ssh_agent::proto::private_key::Ed25519PrivateKey;
 use ssh_agent::proto::private_key::PrivateKey;
 use ssh_agent::proto::signature::Signature;
 
@@ -27,6 +28,22 @@ use untrusted::Input;
 
 use crate::error::Result;
 use crate::error::WithCtx;
+
+
+/// Sign a given blob of data with the given ed25519 private key.
+fn sign_ed25519(key: &Ed25519PrivateKey, data: &[u8]) -> Result<Vec<u8>> {
+  let public = Input::from(&key.enc_a);
+  let seed = Input::from(&key.k_enc_a);
+
+  let key_pair = Ed25519KeyPair::from_seed_and_public_key(seed, public)
+    .ctx(|| "failed to create ed25519 key pair")?;
+
+  let sig = key_pair
+    .sign(&data)
+    .as_ref()
+    .to_vec();
+  Ok(sig)
+}
 
 
 pub trait Signer {
@@ -39,25 +56,16 @@ impl Signer for PrivateKey {
     // We use the ring crate for signing. In order to sign something we
     // first need to convert our private key into a key pair that the
     // crate can work with.
-    let key_pair = match self {
+    let sig = match self {
       PrivateKey::Dss{..} |
       PrivateKey::EcDsa{..} |
       PrivateKey::Rsa{..} => unimplemented!(),
-      PrivateKey::Ed25519(key) => {
-        let public = Input::from(&key.enc_a);
-        let seed = Input::from(&key.k_enc_a);
-
-        Ed25519KeyPair::from_seed_and_public_key(seed, public)
-          .ctx(|| "failed to create ed25519 key pair")?
-      },
+      PrivateKey::Ed25519(key) => sign_ed25519(key, data)?,
     };
 
     let sig = Signature {
       algorithm: self.key_type(),
-      blob: key_pair
-        .sign(&data)
-        .as_ref()
-        .to_vec(),
+      blob: sig,
     };
     Ok(sig)
   }
