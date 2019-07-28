@@ -42,7 +42,7 @@ type Str = Cow<'static, str>;
 
 fn fmt_err(err: &dyn StdError, fmt: &mut Formatter<'_>) -> FmtResult {
   write!(fmt, "{}", err)?;
-  if let Some(cause) = err.cause() {
+  if let Some(cause) = err.source() {
     write!(fmt, ": ")?;
     fmt_err(cause, fmt)?;
   }
