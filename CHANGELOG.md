@@ -1,3 +1,8 @@
+Unreleased
+----------
+- Downgraded `deny` crate-level lints to `warn`
+
+
 0.1.1
 -----
 - Load public keys on demand instead of caching them
