@@ -1,6 +1,7 @@
 Unreleased
 ----------
 - Downgraded `deny` crate-level lints to `warn`
+- Bumped `env_logger` dependency to `0.7`
 
 
 0.1.1
