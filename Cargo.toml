@@ -54,7 +54,7 @@ codegen-units = 1
 incremental = false
 
 [dependencies.dirs]
-version = "1.0"
+version = "2.0"
 
 [dependencies.env_logger]
 version = "0.7"

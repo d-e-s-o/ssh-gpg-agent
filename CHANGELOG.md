@@ -2,6 +2,7 @@ Unreleased
 ----------
 - Downgraded `deny` crate-level lints to `warn`
 - Bumped `env_logger` dependency to `0.7`
+- Bumped `dirs` dependency to `2.0`
 
 
 0.1.1
