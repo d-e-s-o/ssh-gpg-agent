@@ -1,7 +1,7 @@
 // files.rs
 
 // *************************************************************************
-// * Copyright (C) 2019 Daniel Mueller (deso@posteo.net)                   *
+// * Copyright (C) 2019-2020 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -24,11 +24,11 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
+use anyhow::Context as _;
+use anyhow::Result;
+
 use gpgme::Context;
 use gpgme::Protocol;
-
-use crate::error::Result;
-use crate::error::WithCtx;
 
 
 /// The extension SSH public keys in a given directory that we recognize
@@ -65,15 +65,15 @@ impl From<PemPrivateKey> for Vec<u8> {
 /// be GPG encrypted.
 pub fn load_private_key(file: &Path) -> Result<PemPrivateKey> {
   let mut input = File::open(file)
-    .ctx(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
+    .with_context(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
 
-  let mut gpg = Context::from_protocol(Protocol::OpenPgp)
-    .ctx(|| "failed to connect to GPG")?;
+  let mut gpg =
+    Context::from_protocol(Protocol::OpenPgp).with_context(|| "failed to connect to GPG")?;
 
   let mut output = Vec::new();
   let _ = gpg
     .decrypt(&mut input, &mut output)
-    .ctx(|| format!("failed to decrypt {}", file.to_string_lossy()))?;
+    .with_context(|| format!("failed to decrypt {}", file.to_string_lossy()))?;
 
   Ok(PemPrivateKey(output))
 }
@@ -86,12 +86,12 @@ where
 {
   let file = file.as_ref();
   let mut f = File::open(file)
-    .ctx(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
+    .with_context(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
 
   let mut data = Vec::new();
   let _ = f
     .read_to_end(&mut data)
-    .ctx(|| format!("failed to read data from {}", file.to_string_lossy()))?;
+    .with_context(|| format!("failed to read data from {}", file.to_string_lossy()))?;
 
   Ok(PemPublicKey(data))
 }
@@ -108,7 +108,7 @@ where
   let dir = dir.into();
 
   read_dir(&dir)
-    .ctx(|| format!("failed to read contents of {}", dir.to_string_lossy()))
+    .with_context(|| format!("failed to read contents of {}", dir.to_string_lossy()))
     .map(move |x| {
       x.filter_map(move |entry| match entry {
         Ok(entry) => {
@@ -126,7 +126,7 @@ where
             None
           }
         }
-        Err(err) => Some(Err(err).ctx(|| {
+        Err(err) => Some(Err(err).with_context(|| {
           format!(
             "failed to read directory entry in {}",
             dir.to_string_lossy(),
@@ -156,11 +156,12 @@ pub mod test {
   {
     let file = file.as_ref();
     let mut input = File::open(file)
-      .ctx(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
+      .with_context(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
 
     let mut output = Vec::new();
-    let _ = input.read_to_end(&mut output)
-      .ctx(|| format!("failed to read data from {}", file.to_string_lossy()))?;
+    let _ = input
+      .read_to_end(&mut output)
+      .with_context(|| format!("failed to read data from {}", file.to_string_lossy()))?;
 
     Ok(PemPrivateKey(output))
   }

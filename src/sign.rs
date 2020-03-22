@@ -1,7 +1,7 @@
 // sign.rs
 
 // *************************************************************************
-// * Copyright (C) 2019 Daniel Mueller (deso@posteo.net)                   *
+// * Copyright (C) 2019-2020 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -17,6 +17,9 @@
 // * along with this program.  If not, see <http://www.gnu.org/licenses/>. *
 // *************************************************************************
 
+use anyhow::Context as _;
+use anyhow::Result;
+
 use ssh_agent::proto::key_type::KeyTypeEnum;
 use ssh_agent::proto::private_key::Ed25519PrivateKey;
 use ssh_agent::proto::private_key::PrivateKey;
@@ -26,9 +29,6 @@ use ring::signature::Ed25519KeyPair;
 
 use untrusted::Input;
 
-use crate::error::Result;
-use crate::error::WithCtx;
-
 
 /// Sign a given blob of data with the given ed25519 private key.
 fn sign_ed25519(key: &Ed25519PrivateKey, data: &[u8]) -> Result<Vec<u8>> {
@@ -36,7 +36,7 @@ fn sign_ed25519(key: &Ed25519PrivateKey, data: &[u8]) -> Result<Vec<u8>> {
   let seed = Input::from(&key.k_enc_a);
 
   let key_pair = Ed25519KeyPair::from_seed_and_public_key(seed, public)
-    .ctx(|| "failed to create ed25519 key pair")?;
+    .with_context(|| "failed to create ed25519 key pair")?;
 
   let sig = key_pair
     .sign(&data)

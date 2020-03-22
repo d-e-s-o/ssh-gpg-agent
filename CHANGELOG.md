@@ -1,5 +1,6 @@
 Unreleased
 ----------
+- Use `anyhow` for providing context to errors
 - Downgraded `deny` crate-level lints to `warn`
 - Bumped minimum required Rust version to `1.34.0`
 - Bumped `env_logger` dependency to `0.7`

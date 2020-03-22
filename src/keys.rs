@@ -1,7 +1,7 @@
 // keys.rs
 
 // *************************************************************************
-// * Copyright (C) 2019 Daniel Mueller (deso@posteo.net)                   *
+// * Copyright (C) 2019-2020 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -20,6 +20,10 @@
 use std::ops::DerefMut;
 use std::str::from_utf8 as str_from_utf8;
 
+use anyhow::anyhow;
+use anyhow::Context as _;
+use anyhow::Result;
+
 use ssh_agent::proto::private_key::Ed25519PrivateKey;
 use ssh_agent::proto::private_key::PrivateKey;
 use ssh_agent::proto::public_key::Ed25519PublicKey;
@@ -30,9 +34,6 @@ use ssh_keys::openssh::parse_public_key;
 use ssh_keys::PrivateKey as SshPrivateKey;
 use ssh_keys::PublicKey as SshPublicKey;
 
-use crate::error::Error;
-use crate::error::Result;
-use crate::error::WithCtx;
 use crate::files::PemPrivateKey;
 use crate::files::PemPublicKey;
 
@@ -81,20 +82,20 @@ where
 impl FromPem<PemPrivateKey> for PrivateKey {
   fn from_pem(pem_key: PemPrivateKey) -> Result<Self> {
     let data = Vec::<_>::from(pem_key);
-    let string = str_from_utf8(&data)
-      .ctx(|| "failed to convert private key to string")?;
+    let string = str_from_utf8(&data).with_context(|| "failed to convert private key to string")?;
 
     // Note that the SSH format actually supports having multiple keys
     // inside a single file...
-    let mut keys = parse_private_key(string)
-      .ctx(|| "failed to parse private key")?;
+    let mut keys = parse_private_key(string).with_context(|| "failed to parse private key")?;
 
     // ... but we don't :)
     match keys.deref_mut() {
       [_] => Ok(convert_priv(keys.swap_remove(0))),
       _ => {
-        let err = Box::<_>::from("private key file contains unsupported number of keys");
-        Err(Error::Any(err)).ctx(|| "failed to read PEM encoded private key")
+        let err = Err(anyhow!(
+          "private key file contains unsupported number of keys"
+        ));
+        err.with_context(|| "failed to read PEM encoded private key")
       }
     }
   }
@@ -103,11 +104,8 @@ impl FromPem<PemPrivateKey> for PrivateKey {
 impl FromPem<PemPublicKey> for PublicKey {
   fn from_pem(pem_key: PemPublicKey) -> Result<Self> {
     let data = Vec::<_>::from(pem_key);
-    let string = str_from_utf8(&data)
-      .ctx(|| "failed to convert public key to string")?;
-
-    let key = parse_public_key(string)
-      .ctx(|| "failed to parse public key")?;
+    let string = str_from_utf8(&data).with_context(|| "failed to convert public key to string")?;
+    let key = parse_public_key(string).with_context(|| "failed to parse public key")?;
 
     Ok(convert_pub(key))
   }

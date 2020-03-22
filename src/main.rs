@@ -63,18 +63,25 @@
 //! `ssh-gpg-agent` is an SSH agent that can transparently handle GPG
 //! encrypted SSH keys.
 
-mod error;
 mod files;
 mod keys;
 mod sign;
 
 use std::env::args_os;
 use std::env::temp_dir;
+use std::error::Error as StdError;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
 use std::fs::remove_file;
 use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::result::Result as StdResult;
+
+use anyhow::anyhow;
+use anyhow::Context as _;
+use anyhow::Result;
 
 use dirs::home_dir;
 
@@ -91,9 +98,6 @@ use ssh_agent::proto::message::SignRequest;
 use ssh_agent::proto::private_key::PrivateKey;
 use ssh_agent::proto::public_key::PublicKey;
 
-use crate::error::Error;
-use crate::error::Result;
-use crate::error::WithCtx;
 use crate::files::load_private_key;
 use crate::files::public_keys;
 use crate::keys::FromPem;
@@ -159,8 +163,9 @@ impl GpgKeyAgent {
     let mut idents = Vec::new();
     for result in self.public_keys()? {
       let pubkey = result?.0;
-      let blob = pubkey.to_blob()
-        .ctx(|| "failed to serialize private key")?;
+      let blob = pubkey
+        .to_blob()
+        .with_context(|| "failed to serialize private key")?;
       let ident = Identity {
         pubkey_blob: blob,
         // The ssh-keys crate currently does not support handling of
@@ -193,18 +198,20 @@ impl GpgKeyAgent {
   /// Handle a sign request.
   fn sign(&self, request: &SignRequest) -> Result<SignatureBlob> {
     let pubkey = from_bytes::<PublicKey>(&request.pubkey_blob)
-      .ctx(|| "failed to convert public key blob back to public key")?;
+      .with_context(|| "failed to convert public key blob back to public key")?;
 
     if let Some(file) = self.find_private_key(&pubkey) {
       let key = PrivateKey::from_pem(load_private_key(&file?)?)?;
-      let sig = key.sign(&request.data)?;
-        //.ctx(|| "failed to sign request data")?;
-      let blob = sig.to_blob()
-        .ctx(|| "failed to serialized signature")?;
+      let sig = key
+        .sign(&request.data)
+        .with_context(|| "failed to sign request data")?;
+      let blob = sig
+        .to_blob()
+        .with_context(|| "failed to serialized signature")?;
       Ok(blob)
     } else {
-      let err = Box::<_>::from("identity not found");
-      Err(Error::Any(err)).ctx(|| "failed to create signature")
+      let err = Err(anyhow!("identity not found"));
+      err.with_context(|| "failed to create signature")
     }
   }
 
@@ -219,8 +226,8 @@ impl GpgKeyAgent {
         Ok(Message::SignResponse(self.sign(&request)?))
       },
       _ => {
-        let err = Box::<_>::from(format!("received unsupported message: {:?}", request));
-        Err(Error::Any(err)).ctx(|| "failed to handle agent request")
+        let err = Err(anyhow!("received unsupported message: {:?}", request));
+        err.with_context(|| "failed to handle agent request")
       },
     };
     info!("Response {:?}", response);
@@ -240,6 +247,24 @@ impl Agent for GpgKeyAgent {
 }
 
 
+/// A wrapper around a boxed error that allows us to use it in
+/// conjunction with `anyhow`.
+///
+/// This type is required because `Box<dyn Error>` is lacking an
+/// implementation of `std::error::Error`; for more details check
+/// https://github.com/rust-lang/rust/issues/60759
+#[derive(Debug)]
+struct E(Box<dyn StdError + Send + Sync>);
+
+impl Display for E {
+  fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+    write!(f, "{}", self.0)
+  }
+}
+
+impl StdError for E {}
+
+
 /// Run the SSH agent.
 fn main() -> Result<()> {
   env_logger::init();
@@ -249,7 +274,7 @@ fn main() -> Result<()> {
   } else {
     home_dir()
       .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no home directory found"))
-      .ctx(|| "failed to retrieve home directory")?
+      .with_context(|| "failed to retrieve home directory")?
       .join(".ssh")
   };
 
@@ -257,7 +282,9 @@ fn main() -> Result<()> {
   let socket = temp_dir().join("ssh-gpg-agent.sock");
   let _ = remove_file(&socket);
 
-  agent.run_unix(&socket)
-    .ctx(|| "failed to start agent")?;
+  agent
+    .run_unix(&socket)
+    .map_err(E)
+    .with_context(|| "failed to start agent")?;
   Ok(())
 }
