@@ -64,8 +64,8 @@ impl From<PemPrivateKey> for Vec<u8> {
 /// Load a private SSH key from the given file. The file is assumed to
 /// be GPG encrypted.
 pub fn load_private_key(file: &Path) -> Result<PemPrivateKey> {
-  let mut input = File::open(file)
-    .with_context(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
+  let mut input =
+    File::open(file).with_context(|| format!("failed to open {} for reading", file.display()))?;
 
   let mut gpg =
     Context::from_protocol(Protocol::OpenPgp).with_context(|| "failed to connect to GPG")?;
@@ -73,7 +73,7 @@ pub fn load_private_key(file: &Path) -> Result<PemPrivateKey> {
   let mut output = Vec::new();
   let _ = gpg
     .decrypt(&mut input, &mut output)
-    .with_context(|| format!("failed to decrypt {}", file.to_string_lossy()))?;
+    .with_context(|| format!("failed to decrypt {}", file.display()))?;
 
   Ok(PemPrivateKey(output))
 }
@@ -85,13 +85,13 @@ where
   P: AsRef<Path>,
 {
   let file = file.as_ref();
-  let mut f = File::open(file)
-    .with_context(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
+  let mut f =
+    File::open(file).with_context(|| format!("failed to open {} for reading", file.display()))?;
 
   let mut data = Vec::new();
   let _ = f
     .read_to_end(&mut data)
-    .with_context(|| format!("failed to read data from {}", file.to_string_lossy()))?;
+    .with_context(|| format!("failed to read data from {}", file.display()))?;
 
   Ok(PemPublicKey(data))
 }
@@ -108,7 +108,7 @@ where
   let dir = dir.into();
 
   read_dir(&dir)
-    .with_context(|| format!("failed to read contents of {}", dir.to_string_lossy()))
+    .with_context(|| format!("failed to read contents of {}", dir.display()))
     .map(move |x| {
       x.filter_map(move |entry| match entry {
         Ok(entry) => {
@@ -129,7 +129,7 @@ where
         Err(err) => Some(Err(err).with_context(|| {
           format!(
             "failed to read directory entry in {}",
-            dir.to_string_lossy(),
+            dir.display(),
           )
         })),
       })
@@ -155,13 +155,13 @@ pub mod test {
     P: AsRef<Path>,
   {
     let file = file.as_ref();
-    let mut input = File::open(file)
-      .with_context(|| format!("failed to open {} for reading", file.to_string_lossy()))?;
+    let mut input =
+      File::open(file).with_context(|| format!("failed to open {} for reading", file.display()))?;
 
     let mut output = Vec::new();
     let _ = input
       .read_to_end(&mut output)
-      .with_context(|| format!("failed to read data from {}", file.to_string_lossy()))?;
+      .with_context(|| format!("failed to read data from {}", file.display()))?;
 
     Ok(PemPrivateKey(output))
   }
