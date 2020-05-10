@@ -27,13 +27,11 @@ use ssh_agent::proto::signature::Signature;
 
 use ring::signature::Ed25519KeyPair;
 
-use untrusted::Input;
-
 
 /// Sign a given blob of data with the given ed25519 private key.
 fn sign_ed25519(key: &Ed25519PrivateKey, data: &[u8]) -> Result<Vec<u8>> {
-  let public = Input::from(&key.enc_a);
-  let seed = Input::from(&key.k_enc_a);
+  let public = &key.enc_a;
+  let seed = &key.k_enc_a;
 
   let key_pair = Ed25519KeyPair::from_seed_and_public_key(seed, public)
     .with_context(|| "failed to create ed25519 key pair")?;

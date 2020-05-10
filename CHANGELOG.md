@@ -1,6 +1,8 @@
 Unreleased
 ----------
 - Bumped minimum required Rust version to `1.36.0`
+- Bumped `ring` dependency to `0.16`
+  - Removed direct `untrusted` dependency
 
 
 0.1.2
