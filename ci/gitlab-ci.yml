@@ -13,7 +13,7 @@ build-test-lint:
   - apt-get install --assume-yes gettext libgpg-error0
   - rustup component add clippy
   - rustc --version && cargo --version
-  - cargo build --all --verbose
-  - cargo build --all --verbose --release
-  - cargo test --all --verbose
+  - cargo build --bins --verbose
+  - cargo build --bins --verbose --release
+  - cargo test --verbose
   - cargo clippy --all-targets --all-features -- -D warnings
