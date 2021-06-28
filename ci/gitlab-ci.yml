@@ -4,8 +4,8 @@
 # Official language image. Look for the different tagged releases at:
 # https://hub.docker.com/r/library/rust/tags/
 # The recipe for this docker image can be found at:
-# https://github.com/rust-lang/docker-rust/blob/8b50bd6718b4eff487ea9451371fdfafcf1981c2/1.36.0/stretch/Dockerfile
-image: "rust:1.36.0"
+# https://github.com/rust-lang/docker-rust/blob/76921dd61d80c4e8107b858d26bf5e52c4c09816/1.41.0/stretch/Dockerfile
+image: "rust:1.41.0"
 
 build-test-lint:
   script:
