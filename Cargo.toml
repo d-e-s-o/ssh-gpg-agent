@@ -54,7 +54,7 @@ incremental = false
 version = "1.0"
 
 [dependencies.dirs]
-version = "2.0"
+version = "4.0"
 
 [dependencies.env_logger]
 version = "0.7"
