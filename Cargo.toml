@@ -57,7 +57,7 @@ version = "1.0"
 version = "4.0"
 
 [dependencies.env_logger]
-version = "0.7"
+version = "0.9"
 default-features = false
 
 [dependencies.gpgme]
