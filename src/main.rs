@@ -1,7 +1,7 @@
 // main.rs
 
 // *************************************************************************
-// * Copyright (C) 2019-2020 Daniel Mueller (deso@posteo.net)              *
+// * Copyright (C) 2019-2021 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -39,12 +39,12 @@
   renamed_and_removed_lints,
   rust_2018_compatibility,
   rust_2018_idioms,
-  safe_packed_borrows,
   stable_features,
   trivial_bounds,
   trivial_numeric_casts,
   type_alias_bounds,
   tyvar_behind_raw_pointer,
+  unaligned_references,
   unconditional_recursion,
   unreachable_code,
   unreachable_patterns,
