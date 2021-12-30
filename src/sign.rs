@@ -1,7 +1,7 @@
 // sign.rs
 
 // *************************************************************************
-// * Copyright (C) 2019-2020 Daniel Mueller (deso@posteo.net)              *
+// * Copyright (C) 2019-2021 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -37,7 +37,7 @@ fn sign_ed25519(key: &Ed25519PrivateKey, data: &[u8]) -> Result<Vec<u8>> {
     .with_context(|| "failed to create ed25519 key pair")?;
 
   let sig = key_pair
-    .sign(&data)
+    .sign(data)
     .as_ref()
     .to_vec();
   Ok(sig)
