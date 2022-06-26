@@ -1,7 +1,7 @@
 // sign.rs
 
 // *************************************************************************
-// * Copyright (C) 2019-2021 Daniel Mueller (deso@posteo.net)              *
+// * Copyright (C) 2019-2022 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -20,10 +20,10 @@
 use anyhow::Context as _;
 use anyhow::Result;
 
-use ssh_agent::proto::key_type::KeyTypeEnum;
-use ssh_agent::proto::private_key::Ed25519PrivateKey;
-use ssh_agent::proto::private_key::PrivateKey;
-use ssh_agent::proto::signature::Signature;
+use ssh_agent_lib::proto::key_type::KeyTypeEnum;
+use ssh_agent_lib::proto::private_key::Ed25519PrivateKey;
+use ssh_agent_lib::proto::private_key::PrivateKey;
+use ssh_agent_lib::proto::signature::Signature;
 
 use ring::signature::Ed25519KeyPair;
 
@@ -57,7 +57,9 @@ impl Signer for PrivateKey {
     let sig = match self {
       PrivateKey::Dss{..} |
       PrivateKey::EcDsa{..} |
-      PrivateKey::Rsa{..} => unimplemented!(),
+      PrivateKey::Rsa{..} |
+      PrivateKey::SkEcDsa{..} |
+      PrivateKey::SkEd25519{..} => unimplemented!(),
       PrivateKey::Ed25519(key) => sign_ed25519(key, data)?,
     };
 

@@ -1,5 +1,6 @@
 Unreleased
 ----------
+- Switched from using `ssh-agent` to `ssh-agent-lib`
 - Bumped minimum required Rust version to `1.56.0`
 
 

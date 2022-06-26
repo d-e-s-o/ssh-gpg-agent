@@ -1,7 +1,7 @@
 // main.rs
 
 // *************************************************************************
-// * Copyright (C) 2019-2021 Daniel Mueller (deso@posteo.net)              *
+// * Copyright (C) 2019-2022 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -88,15 +88,15 @@ use dirs::home_dir;
 use log::error;
 use log::info;
 
-use ssh_agent::agent::Agent;
-use ssh_agent::proto::Blob;
-use ssh_agent::proto::from_bytes;
-use ssh_agent::proto::message::Identity;
-use ssh_agent::proto::message::Message;
-use ssh_agent::proto::message::SignatureBlob;
-use ssh_agent::proto::message::SignRequest;
-use ssh_agent::proto::private_key::PrivateKey;
-use ssh_agent::proto::public_key::PublicKey;
+use ssh_agent_lib::agent::Agent;
+use ssh_agent_lib::proto::Blob;
+use ssh_agent_lib::proto::from_bytes;
+use ssh_agent_lib::proto::message::Identity;
+use ssh_agent_lib::proto::message::Message;
+use ssh_agent_lib::proto::message::SignatureBlob;
+use ssh_agent_lib::proto::message::SignRequest;
+use ssh_agent_lib::proto::private_key::PrivateKey;
+use ssh_agent_lib::proto::public_key::PublicKey;
 
 use crate::files::load_private_key;
 use crate::files::public_keys;

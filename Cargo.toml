@@ -1,7 +1,7 @@
 # Cargo.toml
 
 #/***************************************************************************
-# *   Copyright (C) 2019-2021 Daniel Mueller (deso@posteo.net)              *
+# *   Copyright (C) 2019-2022 Daniel Mueller (deso@posteo.net)              *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -67,8 +67,8 @@ version = "0.8"
 [dependencies.log]
 version = "0.4"
 
-[dependencies.ssh-agent]
-version = "0.2.3"
+[dependencies.ssh-agent-lib]
+version = "0.2.5"
 features = ["agent"]
 
 [dependencies.ssh-keys]
