@@ -1,7 +1,7 @@
 // main.rs
 
 // *************************************************************************
-// * Copyright (C) 2019-2022 Daniel Mueller (deso@posteo.net)              *
+// * Copyright (C) 2019-2023 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -44,7 +44,6 @@
   trivial_numeric_casts,
   type_alias_bounds,
   tyvar_behind_raw_pointer,
-  unaligned_references,
   unconditional_recursion,
   unreachable_code,
   unreachable_patterns,
