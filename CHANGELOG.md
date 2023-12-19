@@ -1,3 +1,8 @@
+Unreleased
+----------
+- Switched to using GitHub Actions as CI provider
+
+
 0.1.4
 -----
 - Switched from using `ssh-agent` to `ssh-agent-lib`

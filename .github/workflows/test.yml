@@ -1,0 +1,78 @@
+# Copyright (C) 2023 Daniel Mueller <deso@posteo.net>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Test
+
+on:
+  pull_request:
+  push:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Build without debug information enabled to decrease compilation time
+  # and binary sizes in CI. This option is assumed to only have marginal
+  # effects on the generated code, likely only in terms of section
+  # arrangement. See
+  # https://doc.rust-lang.org/cargo/reference/environment-variables.html
+  # https://doc.rust-lang.org/rustc/codegen-options/index.html#debuginfo
+  RUSTFLAGS: '-C debuginfo=0'
+
+jobs:
+  test:
+    name: Build and test [${{ matrix.runs-on }}, ${{ matrix.rust }}, ${{ matrix.profile }}]
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-latest]
+        rust: [stable]
+        profile: [dev, release]
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        profile: minimal
+        override: true
+    - name: Build & test ${{ matrix.profile }}
+      run: |
+        sudo apt-get install --assume-yes libgpgme-dev
+        cargo build --profile=${{ matrix.profile }} --all-targets
+        cargo test --profile=${{ matrix.profile }}
+  build-minimum:
+    name: Build using minimum versions of dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Nightly Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+      - run: cargo +nightly -Z direct-minimal-versions update
+      - name: Install minimum Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          # Please adjust README and rust-version field in Cargo.toml files when
+          # bumping version.
+          toolchain: 1.56.0
+          default: true
+      - name: Build
+        run: |
+          sudo apt-get install --assume-yes libgpgme-dev
+          cargo build --locked
+  clippy:
+    name: Lint with clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+          override: true
+      - run: |
+          sudo apt-get install --assume-yes libgpgme-dev
+          cargo clippy --no-deps --all-targets --all-features --tests -- -A unknown_lints -A deprecated -D warnings
