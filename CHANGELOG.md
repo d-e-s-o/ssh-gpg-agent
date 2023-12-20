@@ -1,6 +1,7 @@
 Unreleased
 ----------
 - Switched to using GitHub Actions as CI provider
+- Bumped minimum required Rust version to `1.70.0`
 
 
 0.1.4
