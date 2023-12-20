@@ -56,5 +56,6 @@ features = ["agent"]
 version = "0.1.3"
 
 [dependencies.ring]
-version = "0.16"
+version = "0.17"
+default-features = false
 features = ["std"]
