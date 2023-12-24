@@ -153,12 +153,6 @@ typical work flows:
   a fall back/backup
 
 
-Limitations
------------
-
-- Currently only support for ed25519 SSH keys is implemented
-
-
 Alternative Approaches
 ----------------------
 

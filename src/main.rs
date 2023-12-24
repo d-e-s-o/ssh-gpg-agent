@@ -17,6 +17,7 @@
 // * along with this program.  If not, see <http://www.gnu.org/licenses/>. *
 // *************************************************************************
 
+#![allow(clippy::let_unit_value)]
 #![warn(
   bad_style,
   broken_intra_doc_links,
@@ -202,7 +203,7 @@ impl GpgKeyAgent {
     if let Some(file) = self.find_private_key(&pubkey) {
       let key = PrivateKey::from_pem(load_private_key(&file?)?)?;
       let sig = key
-        .sign(&request.data)
+        .sign(request.flags, &request.data)
         .with_context(|| "failed to sign request data")?;
       let blob = sig
         .to_blob()

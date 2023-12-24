@@ -1,5 +1,6 @@
 Unreleased
 ----------
+- Added support for RSA keys
 - Switched to using GitHub Actions as CI provider
 - Bumped minimum required Rust version to `1.70.0`
 - Bumped `dirs` dependency to `5.0`

@@ -1,7 +1,7 @@
 // files.rs
 
 // *************************************************************************
-// * Copyright (C) 2019-2022 Daniel Mueller (deso@posteo.net)              *
+// * Copyright (C) 2019-2023 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -80,7 +80,7 @@ pub fn load_private_key(file: &Path) -> Result<PemPrivateKey> {
 
 
 /// Load a public SSH key from the given file.
-fn load_public_key<P>(file: P) -> Result<PemPublicKey>
+pub(crate) fn load_public_key<P>(file: P) -> Result<PemPublicKey>
 where
   P: AsRef<Path>,
 {
@@ -173,6 +173,10 @@ pub mod test {
     let mut keys = public_keys("tests/valid_keys")?;
     let (_, path) = keys.next().unwrap()?;
     assert_eq!(path.to_str().unwrap(), "tests/valid_keys/ed25519.gpg");
+
+    let (_, path) = keys.next().unwrap()?;
+    assert_eq!(path.to_str().unwrap(), "tests/valid_keys/rsa2048.gpg");
+
     assert!(keys.next().is_none());
     Ok(())
   }
@@ -202,6 +206,26 @@ pub mod test {
   #[test]
   fn private_key_conversion_ed25519() -> Result<()> {
     let privkey = load_unencrypted_private_key("tests/valid_keys/ed25519")?;
+    let _ = PrivateKey::from_pem(privkey)?;
+    Ok(())
+  }
+
+
+  /// Test the conversion into of an RSA public key object loaded
+  /// from file into an ssh_agent style PublicKey.
+  #[test]
+  fn public_key_conversion_rsa2048() -> Result<()> {
+    let pubkey = load_public_key("tests/valid_keys/rsa2048.pub")?;
+    let _ = PublicKey::from_pem(pubkey)?;
+    Ok(())
+  }
+
+
+  /// Test the conversion into of an RSA private key object loaded
+  /// from file into an ssh_agent style PrivateKey.
+  #[test]
+  fn private_key_conversion_rsa2048() -> Result<()> {
+    let privkey = load_unencrypted_private_key("tests/valid_keys/rsa2048")?;
     let _ = PrivateKey::from_pem(privkey)?;
     Ok(())
   }

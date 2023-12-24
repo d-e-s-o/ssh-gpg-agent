@@ -1,7 +1,7 @@
 // keys.rs
 
 // *************************************************************************
-// * Copyright (C) 2019-2022 Daniel Mueller (deso@posteo.net)              *
+// * Copyright (C) 2019-2023 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -26,8 +26,10 @@ use anyhow::Result;
 
 use ssh_agent_lib::proto::private_key::Ed25519PrivateKey;
 use ssh_agent_lib::proto::private_key::PrivateKey;
+use ssh_agent_lib::proto::private_key::RsaPrivateKey;
 use ssh_agent_lib::proto::public_key::Ed25519PublicKey;
 use ssh_agent_lib::proto::public_key::PublicKey;
+use ssh_agent_lib::proto::public_key::RsaPublicKey;
 
 use ssh_keys::openssh::parse_private_key;
 use ssh_keys::openssh::parse_public_key;
@@ -41,7 +43,13 @@ use crate::files::PemPublicKey;
 /// Convert an ssh_keys PrivateKey into an ssh_agent PrivateKey.
 fn convert_pub(key: SshPublicKey) -> PublicKey {
   match key {
-    SshPublicKey::Rsa { .. } => unimplemented!(),
+    SshPublicKey::Rsa { exponent, modulus } => {
+      let rsa = RsaPublicKey {
+        e: exponent,
+        n: modulus,
+      };
+      PublicKey::Rsa(rsa)
+    },
     SshPublicKey::Ed25519(data) => {
       let ed25519 = Ed25519PublicKey {
         enc_a: data.to_vec(),
@@ -55,7 +63,24 @@ fn convert_pub(key: SshPublicKey) -> PublicKey {
 /// Convert an ssh_keys PrivateKey into an ssh_agent PrivateKey.
 fn convert_priv(key: SshPrivateKey) -> PrivateKey {
   match key {
-    SshPrivateKey::Rsa { .. } => unimplemented!(),
+    SshPrivateKey::Rsa {
+      n,
+      e,
+      d,
+      iqmp,
+      p,
+      q,
+    } => {
+      let rsa = RsaPrivateKey {
+        n,
+        e,
+        d,
+        iqmp,
+        p,
+        q,
+      };
+      PrivateKey::Rsa(rsa)
+    },
     SshPrivateKey::Ed25519(data) => {
       let mut key = data.to_vec();
       let public = key.split_off(32);
@@ -96,7 +121,7 @@ impl FromPem<PemPrivateKey> for PrivateKey {
           "private key file contains unsupported number of keys"
         ));
         err.with_context(|| "failed to read PEM encoded private key")
-      }
+      },
     }
   }
 }
