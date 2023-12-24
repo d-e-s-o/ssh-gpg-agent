@@ -3,6 +3,7 @@ Unreleased
 - Switched to using GitHub Actions as CI provider
 - Bumped minimum required Rust version to `1.70.0`
 - Bumped `dirs` dependency to `5.0`
+- Bumped `env_logger` dependency to `0.10`
 - Bumped `gpgme` dependency to `0.11`
 - Bumped `ring` dependency to `0.17`
 
