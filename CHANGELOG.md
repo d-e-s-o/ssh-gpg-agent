@@ -2,6 +2,7 @@ Unreleased
 ----------
 - Added support for RSA keys
 - Switched to using GitHub Actions as CI provider
+  - Added GitHub Actions workflow for publishing the crate
 - Bumped minimum required Rust version to `1.70.0`
 - Bumped `dirs` dependency to `5.0`
 - Bumped `env_logger` dependency to `0.10`
