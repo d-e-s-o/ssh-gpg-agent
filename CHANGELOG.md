@@ -1,5 +1,5 @@
-Unreleased
-----------
+0.1.5
+-----
 - Added support for RSA keys
 - Switched to using GitHub Actions as CI provider
   - Added GitHub Actions workflow for publishing the crate
