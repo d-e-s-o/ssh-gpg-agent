@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Daniel Mueller <deso@posteo.net>
+# Copyright (C) 2023-2024 Daniel Mueller <deso@posteo.net>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 name: Test
@@ -31,11 +31,9 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
     - uses: actions/checkout@v4
-    - uses: actions-rs/toolchain@v1
+    - uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ matrix.rust }}
-        profile: minimal
-        override: true
     - name: Build & test ${{ matrix.profile }}
       run: |
         sudo apt-get install --assume-yes libgpgme-dev
@@ -47,19 +45,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Nightly Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
+        uses: dtolnay/rust-toolchain@nightly
       - run: cargo +nightly -Z direct-minimal-versions update
       - name: Install minimum Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           # Please adjust README and rust-version field in Cargo.toml files when
           # bumping version.
           toolchain: 1.70.0
-          default: true
       - name: Build
         run: |
           sudo apt-get install --assume-yes libgpgme-dev
@@ -69,11 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       - run: |
           sudo apt-get install --assume-yes libgpgme-dev
           cargo clippy --no-deps --all-targets --all-features --tests -- -A unknown_lints -A deprecated -D warnings
