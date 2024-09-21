@@ -1,3 +1,8 @@
+Unreleased
+----------
+- Bumped minimum required Rust version to `1.71.0`
+
+
 0.1.5
 -----
 - Added support for RSA keys
