@@ -1,7 +1,7 @@
 // main.rs
 
 // *************************************************************************
-// * Copyright (C) 2019-2024 Daniel Mueller (deso@posteo.net)              *
+// * Copyright (C) 2019-2026 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -55,7 +55,6 @@
   unused_lifetimes,
   unused_qualifications,
   unused_results,
-  where_clauses_object_safety,
   while_true,
 )]
 
