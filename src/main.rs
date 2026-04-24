@@ -23,7 +23,6 @@
   broken_intra_doc_links,
   dead_code,
   future_incompatible,
-  illegal_floating_point_literal_pattern,
   improper_ctypes,
   late_bound_lifetime_arguments,
   missing_copy_implementations,
