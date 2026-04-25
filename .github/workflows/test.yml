@@ -1,4 +1,4 @@
-# Copyright (C) 2023-2024 Daniel Mueller <deso@posteo.net>
+# Copyright (C) 2023-2026 Daniel Mueller <deso@posteo.net>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 name: Test
@@ -36,7 +36,7 @@ jobs:
         toolchain: ${{ matrix.rust }}
     - name: Build & test ${{ matrix.profile }}
       run: |
-        sudo apt-get install --assume-yes libgpgme-dev
+        sudo apt-get install ---yes --no-install-recommends libgpgme-dev
         cargo build --profile=${{ matrix.profile }} --all-targets
         cargo test --profile=${{ matrix.profile }}
   build-minimum:
@@ -55,7 +55,7 @@ jobs:
           toolchain: 1.71.0
       - name: Build
         run: |
-          sudo apt-get install --assume-yes libgpgme-dev
+          sudo apt-get install --yes --no-install-recommends libgpgme-dev
           cargo build --locked
   clippy:
     name: Lint with clippy
@@ -64,5 +64,5 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: |
-          sudo apt-get install --assume-yes libgpgme-dev
+          sudo apt-get install --yes --no-install-recommends libgpgme-dev
           cargo clippy --no-deps --all-targets --all-features --tests -- -A unknown_lints -A deprecated -D warnings
