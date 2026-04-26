@@ -1,7 +1,7 @@
 // files.rs
 
 // *************************************************************************
-// * Copyright (C) 2019-2023 Daniel Mueller (deso@posteo.net)              *
+// * Copyright (C) 2019-2026 Daniel Mueller (deso@posteo.net)              *
 // *                                                                       *
 // * This program is free software: you can redistribute it and/or modify  *
 // * it under the terms of the GNU General Public License as published by  *
@@ -170,11 +170,14 @@ pub mod test {
   /// Verify that we can load our test key.
   #[test]
   fn load_public_keys() -> Result<()> {
-    let mut keys = public_keys("tests/valid_keys")?;
-    let (_, path) = keys.next().unwrap()?;
+    let mut keys = public_keys("tests/valid_keys")?.collect::<Result<Vec<_>>>()?;
+    let () = keys.sort_by_key(|(_key, path)| path.clone());
+
+    let mut keys = keys.into_iter();
+    let (_, path) = keys.next().unwrap();
     assert_eq!(path.to_str().unwrap(), "tests/valid_keys/ed25519.gpg");
 
-    let (_, path) = keys.next().unwrap()?;
+    let (_, path) = keys.next().unwrap();
     assert_eq!(path.to_str().unwrap(), "tests/valid_keys/rsa2048.gpg");
 
     assert!(keys.next().is_none());
