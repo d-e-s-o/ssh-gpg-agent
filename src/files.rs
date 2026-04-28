@@ -109,13 +109,10 @@ where
           } else {
             None
           }
-        }
-        Err(err) => Some(Err(err).with_context(|| {
-          format!(
-            "failed to read directory entry in {}",
-            dir.display(),
-          )
-        })),
+        },
+        Err(err) => Some(
+          Err(err).with_context(|| format!("failed to read directory entry in {}", dir.display(),)),
+        ),
       })
     })
 }

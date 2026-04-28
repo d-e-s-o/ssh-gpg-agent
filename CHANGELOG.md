@@ -1,6 +1,6 @@
 Unreleased
 ----------
-- Bumped minimum required Rust version to `1.71.0`
+- Bumped minimum required Rust version to `1.85.0`
 
 
 0.1.5

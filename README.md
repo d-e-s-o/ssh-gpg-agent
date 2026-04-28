@@ -1,6 +1,6 @@
 [![pipeline](https://github.com/d-e-s-o/ssh-gpg-agent/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/d-e-s-o/ssh-gpg-agent/actions/workflows/test.yml)
 [![crates.io](https://img.shields.io/crates/v/ssh-gpg-agent.svg)](https://crates.io/crates/ssh-gpg-agent)
-[![rustc](https://img.shields.io/badge/rustc-1.71+-blue.svg)](https://blog.rust-lang.org/2023/07/13/Rust-1.71.0.html)
+[![rustc](https://img.shields.io/badge/rustc-1.85+-blue.svg)](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/)
 [![license](https://img.shields.io/github/license/d-e-s-o/ssh-gpg-agent.svg)](https://github.com/d-e-s-o/ssh-gpg-agent/blob/master/LICENSE)
 
 ssh-gpg-agent

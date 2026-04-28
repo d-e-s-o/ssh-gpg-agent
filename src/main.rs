@@ -38,7 +38,7 @@
   unused_lifetimes,
   unused_qualifications,
   unused_results,
-  while_true,
+  while_true
 )]
 
 //! `ssh-gpg-agent` is an SSH agent that can transparently handle GPG
@@ -60,9 +60,9 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::result::Result as StdResult;
 
-use anyhow::anyhow;
 use anyhow::Context as _;
 use anyhow::Result;
+use anyhow::anyhow;
 
 use dirs::home_dir;
 
@@ -74,8 +74,8 @@ use ssh_agent_lib::proto::Blob;
 use ssh_agent_lib::proto::from_bytes;
 use ssh_agent_lib::proto::message::Identity;
 use ssh_agent_lib::proto::message::Message;
-use ssh_agent_lib::proto::message::SignatureBlob;
 use ssh_agent_lib::proto::message::SignRequest;
+use ssh_agent_lib::proto::message::SignatureBlob;
 use ssh_agent_lib::proto::private_key::PrivateKey;
 use ssh_agent_lib::proto::public_key::PublicKey;
 
@@ -130,12 +130,7 @@ impl GpgKeyAgent {
   /// Retrieve the agent's public keys.
   fn public_keys(&self) -> Result<impl Iterator<Item = Result<(PublicKey, PathBuf)>>> {
     let keys = public_keys(self.dir.clone())?
-      .map(|x| {
-        x.map_flat(|(key, path)| {
-          PublicKey::from_pem(key)
-            .map(|x| (x, path))
-        })
-      });
+      .map(|x| x.map_flat(|(key, path)| PublicKey::from_pem(key).map(|x| (x, path))));
     Ok(keys)
   }
 
@@ -169,7 +164,7 @@ impl GpgKeyAgent {
           } else {
             None
           }
-        }
+        },
         Err(err) => Some(Err(err)),
       }),
       Err(err) => Some(Err(err)),
@@ -200,12 +195,8 @@ impl GpgKeyAgent {
   fn handle_message(&self, request: Message) -> Result<Message> {
     info!("Request: {:?}", request);
     let response = match request {
-      Message::RequestIdentities => {
-        Ok(Message::IdentitiesAnswer(self.identities()?))
-      },
-      Message::SignRequest(request) => {
-        Ok(Message::SignResponse(self.sign(&request)?))
-      },
+      Message::RequestIdentities => Ok(Message::IdentitiesAnswer(self.identities()?)),
+      Message::SignRequest(request) => Ok(Message::SignResponse(self.sign(&request)?)),
       _ => {
         let err = Err(anyhow!("received unsupported message: {:?}", request));
         err.with_context(|| "failed to handle agent request")

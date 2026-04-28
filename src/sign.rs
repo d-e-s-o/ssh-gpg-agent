@@ -10,17 +10,17 @@ use ssh_agent_lib::proto::key_type::KeyTypeEnum;
 use ssh_agent_lib::proto::private_key::Ed25519PrivateKey;
 use ssh_agent_lib::proto::private_key::PrivateKey;
 use ssh_agent_lib::proto::private_key::RsaPrivateKey;
-use ssh_agent_lib::proto::signature::Signature;
 use ssh_agent_lib::proto::signature::RSA_SHA2_256;
 use ssh_agent_lib::proto::signature::RSA_SHA2_512;
+use ssh_agent_lib::proto::signature::Signature;
 
 use ring::rand::SystemRandom;
 use ring::rsa::KeyPairComponents as RsaKeyPairComponents;
 use ring::signature::Ed25519KeyPair;
-use ring::signature::RsaKeyPair;
-use ring::signature::RsaPublicKeyComponents;
 use ring::signature::RSA_PKCS1_SHA256;
 use ring::signature::RSA_PKCS1_SHA512;
+use ring::signature::RsaKeyPair;
+use ring::signature::RsaPublicKeyComponents;
 
 
 /// Sign a given blob of data with the given ed25519 private key.
