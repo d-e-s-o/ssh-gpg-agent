@@ -58,6 +58,7 @@ use std::fs::remove_file;
 use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::path::PathBuf;
+use std::process::ExitCode;
 use std::result::Result as StdResult;
 
 use anyhow::Context as _;
@@ -237,8 +238,7 @@ impl Display for E {
 impl StdError for E {}
 
 
-/// Run the SSH agent.
-fn main() -> Result<()> {
+fn main_impl() -> Result<()> {
   env_logger::init();
 
   let dir = if let Some(dir) = args_os().nth(1) {
@@ -259,4 +259,12 @@ fn main() -> Result<()> {
     .map_err(E)
     .with_context(|| "failed to start agent")?;
   Ok(())
+}
+
+/// Run the SSH agent.
+fn main() -> ExitCode {
+  main_impl()
+    .map(|_| ExitCode::SUCCESS)
+    .map_err(|e| eprintln!("{e:?}"))
+    .unwrap_or(ExitCode::FAILURE)
 }
