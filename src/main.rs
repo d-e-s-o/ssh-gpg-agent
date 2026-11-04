@@ -27,6 +27,7 @@ use anyhow::anyhow;
 
 use dirs::home_dir;
 
+use log::debug;
 use log::error;
 use log::info;
 
@@ -99,10 +100,12 @@ impl GpgKeyAgent {
   fn identities(&self) -> Result<Vec<Identity>> {
     let mut idents = Vec::new();
     for result in self.public_keys()? {
-      let pubkey = result?.0;
+      let (pubkey, path) = result?;
+      info!("found public key at `{}`", path.display());
+
       let blob = pubkey
         .to_blob()
-        .with_context(|| "failed to serialize private key")?;
+        .with_context(|| "failed to serialize public key")?;
       let ident = Identity {
         pubkey_blob: blob,
         // The ssh-keys crate currently does not support handling of
@@ -137,8 +140,11 @@ impl GpgKeyAgent {
     let pubkey = from_bytes::<PublicKey>(&request.pubkey_blob)
       .with_context(|| "failed to convert public key blob back to public key")?;
 
-    if let Some(file) = self.find_private_key(&pubkey) {
-      let key = PrivateKey::from_pem(load_private_key(&file?)?)?;
+    if let Some(result) = self.find_private_key(&pubkey) {
+      let path = result?;
+      info!("found matching private key at `{}`", path.display());
+
+      let key = PrivateKey::from_pem(load_private_key(&path)?)?;
       let sig = key
         .sign(request.flags, &request.data)
         .with_context(|| "failed to sign request data")?;
@@ -154,7 +160,7 @@ impl GpgKeyAgent {
 
   /// Handle a message to the agent.
   fn handle_message(&self, request: Message) -> Result<Message> {
-    info!("Request: {request:?}");
+    debug!("Request: {request:?}");
     let response = match request {
       Message::RequestIdentities => Ok(Message::IdentitiesAnswer(self.identities()?)),
       Message::SignRequest(request) => Ok(Message::SignResponse(self.sign(&request)?)),
@@ -163,7 +169,7 @@ impl GpgKeyAgent {
         err.with_context(|| "failed to handle agent request")
       },
     };
-    info!("Response {response:?}");
+    debug!("Response: {response:?}");
     response
   }
 }
