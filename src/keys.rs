@@ -25,8 +25,8 @@ use crate::files::PemPublicKey;
 
 
 /// Convert an `ssh_keys` `PrivateKey` into an `ssh_agent` `PrivateKey`.
-fn convert_pub(key: SshPublicKey) -> PublicKey {
-  match key {
+fn convert_pub(key: SshPublicKey) -> Result<PublicKey> {
+  let key = match key {
     SshPublicKey::Rsa { exponent, modulus } => {
       let rsa = RsaPublicKey {
         e: exponent,
@@ -40,13 +40,14 @@ fn convert_pub(key: SshPublicKey) -> PublicKey {
       };
       PublicKey::Ed25519(ed25519)
     },
-  }
+  };
+  Ok(key)
 }
 
 
 /// Convert an `ssh_keys` `PrivateKey` into an `ssh_agent` `PrivateKey`.
-fn convert_priv(key: SshPrivateKey) -> PrivateKey {
-  match key {
+fn convert_priv(key: SshPrivateKey) -> Result<PrivateKey> {
+  let key = match key {
     SshPrivateKey::Rsa {
       n,
       e,
@@ -76,7 +77,8 @@ fn convert_priv(key: SshPrivateKey) -> PrivateKey {
       };
       PrivateKey::Ed25519(ed25519)
     },
-  }
+  };
+  Ok(key)
 }
 
 
@@ -99,7 +101,7 @@ impl FromPem<PemPrivateKey> for PrivateKey {
 
     // ... but we don't :)
     match keys.deref_mut() {
-      [_] => Ok(convert_priv(keys.swap_remove(0))),
+      [_] => Ok(convert_priv(keys.swap_remove(0))?),
       _ => {
         let err = Err(anyhow!(
           "private key file contains unsupported number of keys"
@@ -116,7 +118,7 @@ impl FromPem<PemPublicKey> for PublicKey {
     let string = str_from_utf8(&data).with_context(|| "failed to convert public key to string")?;
     let key = parse_public_key(string).with_context(|| "failed to parse public key")?;
 
-    Ok(convert_pub(key))
+    convert_pub(key)
   }
 }
 
