@@ -119,3 +119,35 @@ impl FromPem<PemPublicKey> for PublicKey {
     Ok(convert_pub(key))
   }
 }
+
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  use ssh_agent_lib::proto::Blob;
+
+  use crate::files::load_public_key;
+  use crate::files::test::load_unencrypted_private_key;
+
+
+  /// Verify that the public key contained in a private key is identical
+  /// to the public key stored in its `.pub` counterpart.
+  #[test]
+  fn public_key_equivalence() {
+    for name in ["ed25519", "rsa2048"] {
+      let privkey = load_unencrypted_private_key(format!("tests/valid_keys/{name}")).unwrap();
+      let privkey = PrivateKey::from_pem(privkey).unwrap();
+      let blob = PublicKey::from(privkey)
+        .to_blob()
+        .with_context(|| "failed to serialize private key's public key")
+        .unwrap();
+
+      let pubkey = load_public_key(format!("tests/valid_keys/{name}.pub")).unwrap();
+      let pubkey = PublicKey::from_pem(pubkey).unwrap();
+      let expected = pubkey.to_blob().expect("failed to serialize public key");
+
+      assert_eq!(blob, expected, "public key mismatch for `{name}`");
+    }
+  }
+}
