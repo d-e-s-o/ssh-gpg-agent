@@ -207,6 +207,18 @@ pub mod test {
   }
 
 
+  /// Test that leading white space in a public key file is tolerated.
+  #[test]
+  fn public_key_conversion_leading_whitespace() -> Result<()> {
+    let data = Vec::<u8>::from(load_public_key("tests/valid_keys/ed25519.pub")?);
+    // The `ssh-key` crate rejects leading white space, but we do not.
+    let pem = PemPublicKey(format!("\n  {}", from_utf8(&data)?).into_bytes());
+    let key = AuthorizedKey::from_pem(pem)?;
+    assert_eq!(key.comment, "ed25519 test");
+    Ok(())
+  }
+
+
   /// Test the conversion into of an ed25519 private key object loaded
   /// from file into an `ssh_agent` style `PrivateKey`.
   #[test]

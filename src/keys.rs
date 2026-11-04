@@ -132,7 +132,11 @@ impl FromPem<PemPublicKey> for AuthorizedKey {
   fn from_pem(pem_key: PemPublicKey) -> Result<Self> {
     let data = Vec::<_>::from(pem_key);
     let string = str_from_utf8(&data).with_context(|| "failed to convert public key to string")?;
-    let key = SshPublicKey::from_openssh(string).with_context(|| "failed to parse public key")?;
+    // Note that the `ssh-key` crate does not tolerate leading white
+    // space, but we want to be a bit more lenient with input, so strip
+    // whatever the file may contain.
+    let key =
+      SshPublicKey::from_openssh(string.trim()).with_context(|| "failed to parse public key")?;
     let comment = key.comment().to_owned();
 
     let slf = Self {
