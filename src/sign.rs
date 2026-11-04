@@ -136,6 +136,7 @@ mod test {
 
   use crate::files::load_public_key;
   use crate::files::test::load_unencrypted_private_key;
+  use crate::keys::AuthorizedKey;
   use crate::keys::FromPem;
 
 
@@ -162,7 +163,7 @@ mod test {
     let sig = privkey.sign(RSA_SHA2_256, data.as_bytes())?;
 
     let pubkey = load_public_key("tests/valid_keys/rsa2048.pub")?;
-    let pubkey = PublicKey::from_pem(pubkey)?;
+    let pubkey = AuthorizedKey::from_pem(pubkey)?.key;
     let pubkey = match &pubkey {
       PublicKey::Rsa(pubkey) => RsaPublicKeyComponents {
         // Remove leading zero. Yeah...

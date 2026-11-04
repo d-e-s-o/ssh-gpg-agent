@@ -45,6 +45,7 @@ use ssh_agent_lib::proto::public_key::PublicKey;
 
 use crate::files::load_private_key;
 use crate::files::public_keys;
+use crate::keys::AuthorizedKey;
 use crate::keys::FromPem;
 use crate::sign::Signer;
 
@@ -92,9 +93,9 @@ impl GpgKeyAgent {
   }
 
   /// Retrieve the agent's public keys.
-  fn public_keys(&self) -> Result<impl Iterator<Item = Result<(PublicKey, PathBuf)>>> {
+  fn public_keys(&self) -> Result<impl Iterator<Item = Result<(AuthorizedKey, PathBuf)>>> {
     let keys = public_keys(self.dir.clone())?
-      .map(|x| x.map_flat(|(key, path)| PublicKey::from_pem(key).map(|x| (x, path))));
+      .map(|x| x.map_flat(|(key, path)| AuthorizedKey::from_pem(key).map(|x| (x, path))));
     Ok(keys)
   }
 
@@ -102,17 +103,15 @@ impl GpgKeyAgent {
   fn identities(&self) -> Result<Vec<Identity>> {
     let mut idents = Vec::new();
     for result in self.public_keys()? {
-      let (pubkey, path) = result?;
+      let (AuthorizedKey { key, comment }, path) = result?;
       info!("found public key at `{}`", path.display());
 
-      let blob = pubkey
+      let blob = key
         .to_blob()
         .with_context(|| "failed to serialize public key")?;
       let ident = Identity {
         pubkey_blob: blob,
-        // The ssh-keys crate currently does not support handling of
-        // comments and so we just fill in an empty string here.
-        comment: String::new(),
+        comment,
       };
 
       idents.push(ident);
@@ -125,7 +124,7 @@ impl GpgKeyAgent {
     match self.public_keys() {
       Ok(mut keys) => keys.find_map(|x| match x {
         Ok((key, path)) => {
-          if &key == pubkey {
+          if &key.key == pubkey {
             Some(Ok(path))
           } else {
             None

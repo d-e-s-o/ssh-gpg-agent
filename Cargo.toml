@@ -57,6 +57,11 @@ version = "0.4.8"
 version = "0.2.5"
 features = ["agent"]
 
+[dependencies.ssh-key]
+version = "0.6.7"
+default-features = false
+features = ["std"]
+
 [dependencies.ssh-keys]
 version = "0.1.3"
 

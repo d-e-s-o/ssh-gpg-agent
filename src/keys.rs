@@ -7,6 +7,7 @@ use std::str::from_utf8 as str_from_utf8;
 use anyhow::Context as _;
 use anyhow::Result;
 use anyhow::anyhow;
+use anyhow::bail;
 
 use ssh_agent_lib::proto::private_key::Ed25519PrivateKey;
 use ssh_agent_lib::proto::private_key::PrivateKey;
@@ -15,30 +16,35 @@ use ssh_agent_lib::proto::public_key::Ed25519PublicKey;
 use ssh_agent_lib::proto::public_key::PublicKey;
 use ssh_agent_lib::proto::public_key::RsaPublicKey;
 
+use ssh_key::PublicKey as SshPublicKey;
+use ssh_key::public::KeyData;
+
 use ssh_keys::PrivateKey as SshPrivateKey;
-use ssh_keys::PublicKey as SshPublicKey;
 use ssh_keys::openssh::parse_private_key;
-use ssh_keys::openssh::parse_public_key;
 
 use crate::files::PemPrivateKey;
 use crate::files::PemPublicKey;
 
 
-/// Convert an `ssh_keys` `PrivateKey` into an `ssh_agent` `PrivateKey`.
-fn convert_pub(key: SshPublicKey) -> Result<PublicKey> {
+/// Convert an `ssh-key` `KeyData` into an `ssh_agent` `PublicKey`.
+fn convert_pub(key: KeyData) -> Result<PublicKey> {
   let key = match key {
-    SshPublicKey::Rsa { exponent, modulus } => {
+    KeyData::Rsa(data) => {
       let rsa = RsaPublicKey {
-        e: exponent,
-        n: modulus,
+        e: data.e.as_bytes().to_vec(),
+        n: data.n.as_bytes().to_vec(),
       };
       PublicKey::Rsa(rsa)
     },
-    SshPublicKey::Ed25519(data) => {
+    KeyData::Ed25519(data) => {
       let ed25519 = Ed25519PublicKey {
-        enc_a: data.to_vec(),
+        enc_a: data.as_ref().to_vec(),
       };
       PublicKey::Ed25519(ed25519)
+    },
+    other => {
+      let algorithm = other.algorithm();
+      bail!("unsupported public key type: {algorithm}")
     },
   };
   Ok(key)
@@ -82,6 +88,16 @@ fn convert_priv(key: SshPrivateKey) -> Result<PrivateKey> {
 }
 
 
+/// A public key along with the comment stored with it.
+#[derive(Debug)]
+pub struct AuthorizedKey {
+  /// The public key.
+  pub key: PublicKey,
+  /// The key's comment.
+  pub comment: String,
+}
+
+
 /// A trait for construction from PEM encoded data.
 pub trait FromPem<K>
 where
@@ -112,13 +128,18 @@ impl FromPem<PemPrivateKey> for PrivateKey {
   }
 }
 
-impl FromPem<PemPublicKey> for PublicKey {
+impl FromPem<PemPublicKey> for AuthorizedKey {
   fn from_pem(pem_key: PemPublicKey) -> Result<Self> {
     let data = Vec::<_>::from(pem_key);
     let string = str_from_utf8(&data).with_context(|| "failed to convert public key to string")?;
-    let key = parse_public_key(string).with_context(|| "failed to parse public key")?;
+    let key = SshPublicKey::from_openssh(string).with_context(|| "failed to parse public key")?;
+    let comment = key.comment().to_owned();
 
-    convert_pub(key)
+    let slf = Self {
+      key: convert_pub(key.into())?,
+      comment,
+    };
+    Ok(slf)
   }
 }
 
@@ -146,7 +167,7 @@ mod test {
         .unwrap();
 
       let pubkey = load_public_key(format!("tests/valid_keys/{name}.pub")).unwrap();
-      let pubkey = PublicKey::from_pem(pubkey).unwrap();
+      let pubkey = AuthorizedKey::from_pem(pubkey).unwrap().key;
       let expected = pubkey.to_blob().expect("failed to serialize public key");
 
       assert_eq!(blob, expected, "public key mismatch for `{name}`");

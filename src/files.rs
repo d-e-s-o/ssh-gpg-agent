@@ -123,10 +123,12 @@ where
 pub mod test {
   use super::*;
 
+  use std::str::from_utf8;
+
+  use crate::keys::AuthorizedKey;
   use crate::keys::FromPem;
 
   use ssh_agent_lib::proto::private_key::PrivateKey;
-  use ssh_agent_lib::proto::public_key::PublicKey;
 
 
   /// Load a private key from a plain text file. This function is for
@@ -181,7 +183,26 @@ pub mod test {
   #[test]
   fn public_key_conversion_ed25519() -> Result<()> {
     let pubkey = load_public_key("tests/valid_keys/ed25519.pub")?;
-    let _key = PublicKey::from_pem(pubkey)?;
+    let key = AuthorizedKey::from_pem(pubkey)?;
+    assert_eq!(key.comment, "ed25519 test");
+    Ok(())
+  }
+
+
+  /// Test that a public key without an accompanying comment is
+  /// converted just fine.
+  #[test]
+  fn public_key_conversion_without_comment() -> Result<()> {
+    let data = Vec::<u8>::from(load_public_key("tests/valid_keys/ed25519.pub")?);
+    // Strip the comment from the key, leaving just the algorithm and
+    // the key material.
+    let string = from_utf8(&data)?.trim();
+    let (alg, rest) = string.split_once(' ').unwrap();
+    let material = rest.split(' ').next().unwrap();
+
+    let pem = PemPublicKey(format!("{alg} {material}\n").into_bytes());
+    let key = AuthorizedKey::from_pem(pem)?;
+    assert_eq!(key.comment, "");
     Ok(())
   }
 
@@ -201,7 +222,8 @@ pub mod test {
   #[test]
   fn public_key_conversion_rsa2048() -> Result<()> {
     let pubkey = load_public_key("tests/valid_keys/rsa2048.pub")?;
-    let _key = PublicKey::from_pem(pubkey)?;
+    let key = AuthorizedKey::from_pem(pubkey)?;
+    assert_eq!(key.comment, "rsa2048 test");
     Ok(())
   }
 
