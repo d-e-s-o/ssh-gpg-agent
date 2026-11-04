@@ -99,11 +99,10 @@ impl Signer for PrivateKey {
     // first need to convert our private key into a key pair that the
     // crate can work with.
     let (alg, sig) = match self {
-      PrivateKey::Dss { .. }
-      | PrivateKey::EcDsa { .. }
-      | PrivateKey::SkEcDsa { .. }
-      | PrivateKey::SkEd25519 { .. } => unimplemented!(),
-      PrivateKey::Rsa(key) => {
+      Self::Dss { .. } | Self::EcDsa { .. } | Self::SkEcDsa { .. } | Self::SkEd25519 { .. } => {
+        unimplemented!()
+      },
+      Self::Rsa(key) => {
         let algorithm = if flags & RSA_SHA2_512 != 0 {
           "rsa-sha2-512"
         } else if flags & RSA_SHA2_256 != 0 {
@@ -115,7 +114,7 @@ impl Signer for PrivateKey {
 
         (algorithm.to_string(), signature)
       },
-      PrivateKey::Ed25519(key) => (self.key_type(), sign_ed25519(key, data)?),
+      Self::Ed25519(key) => (self.key_type(), sign_ed25519(key, data)?),
     };
 
     let sig = Signature {
@@ -147,12 +146,13 @@ mod test {
     let privkey = PrivateKey::from_pem(privkey)?;
 
     let data = "test-data";
-    let _ = privkey.sign(0, data.as_bytes())?;
+    let _sig = privkey.sign(0, data.as_bytes())?;
     Ok(())
   }
 
 
   /// Test the signing of data with an RSA private key.
+  #[expect(clippy::indexing_slicing)]
   #[test]
   fn sign_rsa() -> Result<()> {
     let privkey = load_unencrypted_private_key("tests/valid_keys/rsa2048")?;

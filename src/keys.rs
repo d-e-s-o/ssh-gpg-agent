@@ -24,7 +24,7 @@ use crate::files::PemPrivateKey;
 use crate::files::PemPublicKey;
 
 
-/// Convert an ssh_keys PrivateKey into an ssh_agent PrivateKey.
+/// Convert an `ssh_keys` `PrivateKey` into an `ssh_agent` `PrivateKey`.
 fn convert_pub(key: SshPublicKey) -> PublicKey {
   match key {
     SshPublicKey::Rsa { exponent, modulus } => {
@@ -44,7 +44,7 @@ fn convert_pub(key: SshPublicKey) -> PublicKey {
 }
 
 
-/// Convert an ssh_keys PrivateKey into an ssh_agent PrivateKey.
+/// Convert an `ssh_keys` `PrivateKey` into an `ssh_agent` `PrivateKey`.
 fn convert_priv(key: SshPrivateKey) -> PrivateKey {
   match key {
     SshPrivateKey::Rsa {

@@ -55,7 +55,7 @@ pub fn load_private_key(file: &Path) -> Result<PemPrivateKey> {
     Context::from_protocol(Protocol::OpenPgp).with_context(|| "failed to connect to GPG")?;
 
   let mut output = Vec::new();
-  let _ = gpg
+  let _result = gpg
     .decrypt(&mut input, &mut output)
     .with_context(|| format!("failed to decrypt {}", file.display()))?;
 
@@ -73,7 +73,7 @@ where
     File::open(file).with_context(|| format!("failed to open {} for reading", file.display()))?;
 
   let mut data = Vec::new();
-  let _ = f
+  let _count = f
     .read_to_end(&mut data)
     .with_context(|| format!("failed to read data from {}", file.display()))?;
 
@@ -99,7 +99,7 @@ where
           let path = entry.path();
           if path.exists() && !path.is_dir() && path.extension() == Some(OsStr::new(PUBLIC_EXT)) {
             let mut gpg_path = path.clone();
-            let _ = gpg_path.set_extension(OsStr::new(PRIVATE_EXT));
+            let _set = gpg_path.set_extension(OsStr::new(PRIVATE_EXT));
 
             if gpg_path.exists() && !gpg_path.is_dir() {
               Some(load_public_key(&path).map(|x| (x, gpg_path)))
@@ -118,6 +118,7 @@ where
 }
 
 
+#[expect(clippy::panic_in_result_fn)]
 #[cfg(test)]
 pub mod test {
   use super::*;
@@ -155,10 +156,10 @@ pub mod test {
     let () = keys.sort_by_key(|(_key, path)| path.clone());
 
     let mut keys = keys.into_iter();
-    let (_, path) = keys.next().unwrap();
+    let (_key, path) = keys.next().unwrap();
     assert_eq!(path.to_str().unwrap(), "tests/valid_keys/ed25519.gpg");
 
-    let (_, path) = keys.next().unwrap();
+    let (_key, path) = keys.next().unwrap();
     assert_eq!(path.to_str().unwrap(), "tests/valid_keys/rsa2048.gpg");
 
     assert!(keys.next().is_none());
@@ -176,41 +177,41 @@ pub mod test {
 
 
   /// Test the conversion into of an ed25519 public key object loaded
-  /// from file into an ssh_agent style PublicKey.
+  /// from file into an `ssh_agent` style `PublicKey`.
   #[test]
   fn public_key_conversion_ed25519() -> Result<()> {
     let pubkey = load_public_key("tests/valid_keys/ed25519.pub")?;
-    let _ = PublicKey::from_pem(pubkey)?;
+    let _key = PublicKey::from_pem(pubkey)?;
     Ok(())
   }
 
 
   /// Test the conversion into of an ed25519 private key object loaded
-  /// from file into an ssh_agent style PrivateKey.
+  /// from file into an `ssh_agent` style `PrivateKey`.
   #[test]
   fn private_key_conversion_ed25519() -> Result<()> {
     let privkey = load_unencrypted_private_key("tests/valid_keys/ed25519")?;
-    let _ = PrivateKey::from_pem(privkey)?;
+    let _key = PrivateKey::from_pem(privkey)?;
     Ok(())
   }
 
 
   /// Test the conversion into of an RSA public key object loaded
-  /// from file into an ssh_agent style PublicKey.
+  /// from file into an `ssh_agent` style `PublicKey`.
   #[test]
   fn public_key_conversion_rsa2048() -> Result<()> {
     let pubkey = load_public_key("tests/valid_keys/rsa2048.pub")?;
-    let _ = PublicKey::from_pem(pubkey)?;
+    let _key = PublicKey::from_pem(pubkey)?;
     Ok(())
   }
 
 
   /// Test the conversion into of an RSA private key object loaded
-  /// from file into an ssh_agent style PrivateKey.
+  /// from file into an `ssh_agent` style `PrivateKey`.
   #[test]
   fn private_key_conversion_rsa2048() -> Result<()> {
     let privkey = load_unencrypted_private_key("tests/valid_keys/rsa2048")?;
-    let _ = PrivateKey::from_pem(privkey)?;
+    let _key = PrivateKey::from_pem(privkey)?;
     Ok(())
   }
 }

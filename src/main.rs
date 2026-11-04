@@ -1,46 +1,6 @@
 // Copyright (C) 2019-2026 Daniel Mueller <deso@posteo.net>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#![allow(clippy::let_unit_value)]
-#![warn(
-  bad_style,
-  broken_intra_doc_links,
-  dead_code,
-  future_incompatible,
-  improper_ctypes,
-  late_bound_lifetime_arguments,
-  missing_copy_implementations,
-  missing_debug_implementations,
-  missing_docs,
-  no_mangle_generic_items,
-  non_shorthand_field_patterns,
-  nonstandard_style,
-  overflowing_literals,
-  path_statements,
-  patterns_in_fns_without_body,
-  proc_macro_derive_resolution_fallback,
-  renamed_and_removed_lints,
-  rust_2018_compatibility,
-  rust_2018_idioms,
-  stable_features,
-  trivial_bounds,
-  trivial_numeric_casts,
-  type_alias_bounds,
-  tyvar_behind_raw_pointer,
-  unconditional_recursion,
-  unreachable_code,
-  unreachable_patterns,
-  unstable_features,
-  unstable_name_collisions,
-  unused,
-  unused_comparisons,
-  unused_import_braces,
-  unused_lifetimes,
-  unused_qualifications,
-  unused_results,
-  while_true
-)]
-
 //! `ssh-gpg-agent` is an SSH agent that can transparently handle GPG
 //! encrypted SSH keys.
 
@@ -194,16 +154,16 @@ impl GpgKeyAgent {
 
   /// Handle a message to the agent.
   fn handle_message(&self, request: Message) -> Result<Message> {
-    info!("Request: {:?}", request);
+    info!("Request: {request:?}");
     let response = match request {
       Message::RequestIdentities => Ok(Message::IdentitiesAnswer(self.identities()?)),
       Message::SignRequest(request) => Ok(Message::SignResponse(self.sign(&request)?)),
       _ => {
-        let err = Err(anyhow!("received unsupported message: {:?}", request));
+        let err = Err(anyhow!("received unsupported message: {request:?}"));
         err.with_context(|| "failed to handle agent request")
       },
     };
-    info!("Response {:?}", response);
+    info!("Response {response:?}");
     response
   }
 }
@@ -213,7 +173,7 @@ impl Agent for GpgKeyAgent {
 
   fn handle(&self, message: Message) -> StdResult<Message, ()> {
     self.handle_message(message).or_else(|err| {
-      error!("Error handling message: {:?}", err);
+      error!("Error handling message: {err:?}");
       Ok(Message::Failure)
     })
   }
@@ -225,7 +185,7 @@ impl Agent for GpgKeyAgent {
 ///
 /// This type is required because `Box<dyn Error>` is lacking an
 /// implementation of `std::error::Error`; for more details check
-/// https://github.com/rust-lang/rust/issues/60759
+/// <https://github.com/rust-lang/rust/issues/60759>
 #[derive(Debug)]
 struct E(Box<dyn StdError + Send + Sync>);
 
@@ -252,7 +212,7 @@ fn main_impl() -> Result<()> {
 
   let agent = GpgKeyAgent::new(dir);
   let socket = temp_dir().join("ssh-gpg-agent.sock");
-  let _ = remove_file(&socket);
+  let _result = remove_file(&socket);
 
   agent
     .run_unix(&socket)
