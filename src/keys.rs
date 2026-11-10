@@ -102,7 +102,11 @@ where
 impl FromPem<PemPrivateKey> for PrivateKey {
   fn from_pem(pem_key: PemPrivateKey) -> Result<Self> {
     let data = Vec::<_>::from(pem_key);
-    let key = SshPrivateKey::from_openssh(&data).with_context(|| "failed to parse private key")?;
+    // The `ssh-key` crate rejects white space around the PEM
+    // boundaries, but we want to be lenient with input, so strip
+    // whatever the file may contain.
+    let key = SshPrivateKey::from_openssh(data.trim_ascii())
+      .with_context(|| "failed to parse private key")?;
 
     // `ssh-key` hands us an encrypted key as is, so we have to check
     // for this case ourselves.

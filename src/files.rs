@@ -229,6 +229,19 @@ pub mod test {
   }
 
 
+  /// Test that white space around a private key file is tolerated.
+  #[test]
+  fn private_key_conversion_whitespace() -> Result<()> {
+    let key = load_unencrypted_private_key("tests/valid_keys/ed25519")?;
+    let data = Vec::<u8>::from(key);
+    // The `ssh-key` crate rejects white space around the PEM
+    // boundaries, but we do not.
+    let pem = PemPrivateKey(format!("  {}\n\n", from_utf8(&data)?).into_bytes());
+    let _key = PrivateKey::from_pem(pem)?;
+    Ok(())
+  }
+
+
   /// Test the conversion into of an RSA public key object loaded
   /// from file into an `ssh_agent` style `PublicKey`.
   #[test]
