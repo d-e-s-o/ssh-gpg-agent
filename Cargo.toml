@@ -31,6 +31,9 @@ lto = true
 codegen-units = 1
 incremental = false
 
+[build-dependencies.grev]
+version = "0.2"
+
 [dependencies.anyhow]
 version = "1.0.14"
 

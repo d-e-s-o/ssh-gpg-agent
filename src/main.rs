@@ -230,16 +230,20 @@ where
   // dependency on `clap`.
   if args().any(|arg| arg == "--help" || arg == "-h") {
     print!(
-      "{name} -- a SSH agent that supports PGP encrypted private SSH keys.
+      "{name} {version} -- a SSH agent that supports PGP encrypted private SSH keys.
 
 USAGE:
   {name} [OPTIONS] [KEY-DIR]
 
 OPTIONS:
   -h, --help        Print help information
+  -V, --version     Print version information
 ",
       name = env!("CARGO_CRATE_NAME"),
+      version = env!("VERSION"),
     )
+  } else if args().any(|arg| arg == "--version" || arg == "-V") {
+    println!("{} {}", env!("CARGO_CRATE_NAME"), env!("VERSION"))
   } else {
     let mut args = args();
 

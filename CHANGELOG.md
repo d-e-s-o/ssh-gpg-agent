@@ -1,6 +1,6 @@
 Unreleased
 ----------
-- Added `-h`/`--help` argument to the program
+- Added `-h`/`--help` and `-V`/`--version` arguments to the program
 
 
 0.1.6
