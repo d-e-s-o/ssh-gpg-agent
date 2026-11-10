@@ -204,19 +204,10 @@ impl Display for E {
 impl StdError for E {}
 
 
-fn main_impl() -> Result<()> {
+fn run(key_dir: PathBuf) -> Result<()> {
   env_logger::init();
 
-  let dir = if let Some(dir) = args_os().nth(1) {
-    dir.into()
-  } else {
-    home_dir()
-      .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no home directory found"))
-      .with_context(|| "failed to retrieve home directory")?
-      .join(".ssh")
-  };
-
-  let agent = GpgKeyAgent::new(dir);
+  let agent = GpgKeyAgent::new(key_dir);
   let socket = temp_dir().join("ssh-gpg-agent.sock");
   let _result = remove_file(&socket);
 
@@ -225,6 +216,20 @@ fn main_impl() -> Result<()> {
     .map_err(E)
     .with_context(|| "failed to start agent")?;
   Ok(())
+}
+
+
+fn main_impl() -> Result<()> {
+  let key_dir = if let Some(dir) = args_os().nth(1) {
+    dir.into()
+  } else {
+    home_dir()
+      .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no home directory found"))
+      .with_context(|| "failed to retrieve home directory")?
+      .join(".ssh")
+  };
+
+  run(key_dir)
 }
 
 /// Run the SSH agent.
