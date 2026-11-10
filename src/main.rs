@@ -11,6 +11,7 @@ mod sign;
 use std::env::args_os;
 use std::env::temp_dir;
 use std::error::Error as StdError;
+use std::ffi::OsString;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
@@ -24,6 +25,7 @@ use std::result::Result as StdResult;
 use anyhow::Context as _;
 use anyhow::Result;
 use anyhow::anyhow;
+use anyhow::bail;
 
 use dirs::home_dir;
 
@@ -219,22 +221,53 @@ fn run(key_dir: PathBuf) -> Result<()> {
 }
 
 
-fn main_impl() -> Result<()> {
-  let key_dir = if let Some(dir) = args_os().nth(1) {
-    dir.into()
-  } else {
-    home_dir()
-      .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no home directory found"))
-      .with_context(|| "failed to retrieve home directory")?
-      .join(".ssh")
-  };
+fn main_impl<A, O>(args: A) -> Result<()>
+where
+  A: Fn() -> O,
+  O: ExactSizeIterator<Item = OsString>,
+{
+  // Slightly ghetto argument parser helps us avoid unnecessary large
+  // dependency on `clap`.
+  if args().any(|arg| arg == "--help" || arg == "-h") {
+    print!(
+      "{name} -- a SSH agent that supports PGP encrypted private SSH keys.
 
-  run(key_dir)
+USAGE:
+  {name} [OPTIONS] [KEY-DIR]
+
+OPTIONS:
+  -h, --help        Print help information
+",
+      name = env!("CARGO_CRATE_NAME"),
+    )
+  } else {
+    let mut args = args();
+
+    let key_dir = if let Some(dir) = args.next() {
+      dir.into()
+    } else {
+      home_dir()
+        .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no home directory found"))
+        .with_context(|| "failed to retrieve home directory")?
+        .join(".ssh")
+    };
+
+    if let Some(arg) = args.next() {
+      bail!("unexpected argument '{}' found", arg.to_string_lossy())
+    } else {
+      run(key_dir)?
+    }
+  }
+  Ok(())
 }
 
 /// Run the SSH agent.
 fn main() -> ExitCode {
-  main_impl()
+  // By convention the 0th argument contains the path to the program;
+  // ignore it.
+  let args = || args_os().skip(1);
+
+  main_impl(args)
     .map(|_| ExitCode::SUCCESS)
     .map_err(|e| eprintln!("{e:?}"))
     .unwrap_or(ExitCode::FAILURE)

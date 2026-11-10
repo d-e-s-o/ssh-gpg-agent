@@ -1,3 +1,8 @@
+Unreleased
+----------
+- Added `-h`/`--help` argument to the program
+
+
 0.1.6
 -----
 - Bumped minimum required Rust version to `1.85.0`
