@@ -248,4 +248,18 @@ pub mod test {
     let _key = PrivateKey::from_pem(privkey)?;
     Ok(())
   }
+
+
+  /// Verify that a private key protected with a passphrase is rejected.
+  #[test]
+  fn reject_encrypted_private_key() {
+    // The key is protected with the passphrase "test-passphrase".
+    let pem_key = load_unencrypted_private_key("tests/invalid_keys/passphrase_protected").unwrap();
+    let err = PrivateKey::from_pem(pem_key).err().unwrap();
+
+    assert!(
+      format!("{err:#}").contains("passphrase protected keys are not supported"),
+      "{err:#}"
+    );
+  }
 }

@@ -62,9 +62,6 @@ version = "0.6.7"
 default-features = false
 features = ["std"]
 
-[dependencies.ssh-keys]
-version = "0.1.3"
-
 [dependencies.ring]
 version = "0.17"
 default-features = false

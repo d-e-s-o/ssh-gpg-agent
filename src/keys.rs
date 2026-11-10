@@ -1,7 +1,6 @@
 // Copyright (C) 2019-2026 Daniel Mueller <deso@posteo.net>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::ops::DerefMut;
 use std::str::from_utf8 as str_from_utf8;
 
 use anyhow::Context as _;
@@ -16,11 +15,10 @@ use ssh_agent_lib::proto::public_key::Ed25519PublicKey;
 use ssh_agent_lib::proto::public_key::PublicKey;
 use ssh_agent_lib::proto::public_key::RsaPublicKey;
 
+use ssh_key::PrivateKey as SshPrivateKey;
 use ssh_key::PublicKey as SshPublicKey;
+use ssh_key::private::KeypairData;
 use ssh_key::public::KeyData;
-
-use ssh_keys::PrivateKey as SshPrivateKey;
-use ssh_keys::openssh::parse_private_key;
 
 use crate::files::PemPrivateKey;
 use crate::files::PemPublicKey;
@@ -51,37 +49,32 @@ fn convert_pub(key: KeyData) -> Result<PublicKey> {
 }
 
 
-/// Convert an `ssh_keys` `PrivateKey` into an `ssh_agent` `PrivateKey`.
-fn convert_priv(key: SshPrivateKey) -> Result<PrivateKey> {
+/// Convert an `ssh-key` `KeypairData` into an `ssh_agent` `PrivateKey`.
+fn convert_priv(key: &KeypairData) -> Result<PrivateKey> {
   let key = match key {
-    SshPrivateKey::Rsa {
-      n,
-      e,
-      d,
-      iqmp,
-      p,
-      q,
-    } => {
+    KeypairData::Rsa(key) => {
       let rsa = RsaPrivateKey {
-        n,
-        e,
-        d,
-        iqmp,
-        p,
-        q,
+        n: key.public.n.as_bytes().to_vec(),
+        e: key.public.e.as_bytes().to_vec(),
+        d: key.private.d.as_bytes().to_vec(),
+        iqmp: key.private.iqmp.as_bytes().to_vec(),
+        p: key.private.p.as_bytes().to_vec(),
+        q: key.private.q.as_bytes().to_vec(),
       };
       PrivateKey::Rsa(rsa)
     },
-    SshPrivateKey::Ed25519(data) => {
-      let mut key = data.to_vec();
-      let public = key.split_off(32);
-      let seed = key;
-
+    KeypairData::Ed25519(key) => {
       let ed25519 = Ed25519PrivateKey {
-        enc_a: public,
-        k_enc_a: seed,
+        enc_a: key.public.as_ref().to_vec(),
+        k_enc_a: key.private.as_ref().to_vec(),
       };
       PrivateKey::Ed25519(ed25519)
+    },
+    other => {
+      let algorithm = other
+        .algorithm()
+        .with_context(|| "failed to determine private key type")?;
+      bail!("unsupported private key type: {algorithm}")
     },
   };
   Ok(key)
@@ -109,22 +102,16 @@ where
 impl FromPem<PemPrivateKey> for PrivateKey {
   fn from_pem(pem_key: PemPrivateKey) -> Result<Self> {
     let data = Vec::<_>::from(pem_key);
-    let string = str_from_utf8(&data).with_context(|| "failed to convert private key to string")?;
+    let key = SshPrivateKey::from_openssh(&data).with_context(|| "failed to parse private key")?;
 
-    // Note that the SSH format actually supports having multiple keys
-    // inside a single file...
-    let mut keys = parse_private_key(string).with_context(|| "failed to parse private key")?;
-
-    // ... but we don't :)
-    match keys.deref_mut() {
-      [_] => Ok(convert_priv(keys.swap_remove(0))?),
-      _ => {
-        let err = Err(anyhow!(
-          "private key file contains unsupported number of keys"
-        ));
-        err.with_context(|| "failed to read PEM encoded private key")
-      },
+    // `ssh-key` hands us an encrypted key as is, so we have to check
+    // for this case ourselves.
+    if key.is_encrypted() {
+      let err = Err(anyhow!("passphrase protected keys are not supported"));
+      return err.with_context(|| "failed to read PEM encoded private key");
     }
+
+    convert_priv(key.key_data())
   }
 }
 
