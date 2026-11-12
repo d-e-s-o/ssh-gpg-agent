@@ -10,11 +10,7 @@ mod sign;
 
 use std::env::args_os;
 use std::env::temp_dir;
-use std::error::Error as StdError;
 use std::ffi::OsString;
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::fmt::Result as FmtResult;
 use std::fs::remove_file;
 use std::io::Error as IoError;
 use std::io::ErrorKind;
@@ -34,6 +30,9 @@ use log::error;
 use log::info;
 
 use ssh_agent_lib::agent::Agent;
+use ssh_agent_lib::agent::Session;
+use ssh_agent_lib::async_trait;
+use ssh_agent_lib::error::AgentError;
 use ssh_agent_lib::proto::Blob;
 use ssh_agent_lib::proto::from_bytes;
 use ssh_agent_lib::proto::message::Identity;
@@ -42,6 +41,9 @@ use ssh_agent_lib::proto::message::SignRequest;
 use ssh_agent_lib::proto::message::SignatureBlob;
 use ssh_agent_lib::proto::private_key::PrivateKey;
 use ssh_agent_lib::proto::public_key::PublicKey;
+
+use tokio::net::UnixListener;
+use tokio::runtime::Builder;
 
 use crate::files::load_private_key;
 use crate::files::public_keys;
@@ -79,6 +81,7 @@ impl<T, E> Mapper<T, E> for StdResult<T, E> {
 /// and keep those public keys in memory. It explicitly does not cache
 /// secret key material, but loads it on demand for each and every
 /// request.
+#[derive(Clone, Debug)]
 struct GpgKeyAgent {
   /// The directory in which to look for SSH key pairs.
   dir: PathBuf,
@@ -175,34 +178,25 @@ impl GpgKeyAgent {
   }
 }
 
-impl Agent for GpgKeyAgent {
-  type Error = ();
-
-  fn handle(&self, message: Message) -> StdResult<Message, ()> {
-    self.handle_message(message).or_else(|err| {
+#[async_trait]
+impl Session for GpgKeyAgent {
+  async fn handle(&mut self, message: Message) -> StdResult<Message, AgentError> {
+    // NB: Returning an error here would tear down the connection
+    //     altogether, so communicate failures to the client by way of a
+    //     `Failure` message.
+    let response = self.handle_message(message).unwrap_or_else(|err| {
       error!("Error handling message: {err:?}");
-      Ok(Message::Failure)
-    })
+      Message::Failure
+    });
+    Ok(response)
   }
 }
 
-
-/// A wrapper around a boxed error that allows us to use it in
-/// conjunction with `anyhow`.
-///
-/// This type is required because `Box<dyn Error>` is lacking an
-/// implementation of `std::error::Error`; for more details check
-/// <https://github.com/rust-lang/rust/issues/60759>
-#[derive(Debug)]
-struct E(Box<dyn StdError + Send + Sync>);
-
-impl Display for E {
-  fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-    write!(f, "{}", self.0)
+impl Agent for GpgKeyAgent {
+  fn new_session(&mut self) -> impl Session {
+    self.clone()
   }
 }
-
-impl StdError for E {}
 
 
 fn run(key_dir: PathBuf) -> Result<()> {
@@ -212,9 +206,19 @@ fn run(key_dir: PathBuf) -> Result<()> {
   let socket = temp_dir().join("ssh-gpg-agent.sock");
   let _result = remove_file(&socket);
 
-  agent
-    .run_unix(&socket)
-    .map_err(E)
+  let runtime = Builder::new_current_thread()
+    .enable_all()
+    .build()
+    .with_context(|| "failed to create runtime")?;
+
+  // Binding a socket requires the runtime's I/O driver to be active.
+  let _guard = runtime.enter();
+
+  let listener = UnixListener::bind(&socket)
+    .with_context(|| format!("failed to bind `{}`", socket.display()))?;
+
+  runtime
+    .block_on(agent.listen(listener))
     .with_context(|| "failed to start agent")?;
   Ok(())
 }

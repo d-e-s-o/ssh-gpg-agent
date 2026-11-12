@@ -54,13 +54,17 @@ version = "0.10.39"
 version = "0.4.8"
 
 [dependencies.ssh-agent-lib]
-version = "0.2.5"
+version = "0.3"
 features = ["agent"]
 
 [dependencies.ssh-key]
 version = "0.6.7"
 default-features = false
 features = ["std"]
+
+[dependencies.tokio]
+version = "1"
+features = ["net", "rt", "time"]
 
 [dependencies.ring]
 version = "0.17"
