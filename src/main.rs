@@ -10,6 +10,7 @@ mod sign;
 
 use std::env::args_os;
 use std::env::temp_dir;
+use std::error::Error as StdError;
 use std::ffi::OsString;
 use std::fs::remove_file;
 use std::io::Error as IoError;
@@ -26,13 +27,11 @@ use anyhow::bail;
 use dirs::home_dir;
 
 use log::debug;
-use log::error;
 use log::info;
 
 use ssh_agent_lib::agent::Agent;
 use ssh_agent_lib::agent::Session;
 use ssh_agent_lib::async_trait;
-use ssh_agent_lib::error::AgentError;
 use ssh_agent_lib::proto::Blob;
 use ssh_agent_lib::proto::from_bytes;
 use ssh_agent_lib::proto::message::Identity;
@@ -180,15 +179,9 @@ impl GpgKeyAgent {
 
 #[async_trait]
 impl Session for GpgKeyAgent {
-  async fn handle(&mut self, message: Message) -> StdResult<Message, AgentError> {
-    // NB: Returning an error here would tear down the connection
-    //     altogether, so communicate failures to the client by way of a
-    //     `Failure` message.
-    let response = self.handle_message(message).unwrap_or_else(|err| {
-      error!("Error handling message: {err:?}");
-      Message::Failure
-    });
-    Ok(response)
+  async fn handle(&mut self, message: Message) -> StdResult<Message, Box<dyn StdError>> {
+    let message = self.handle_message(message)?;
+    Ok(message)
   }
 }
 
