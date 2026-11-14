@@ -128,7 +128,7 @@ pub mod test {
   use crate::keys::AuthorizedKey;
   use crate::keys::FromPem;
 
-  use ssh_agent_lib::proto::private_key::PrivateKey;
+  use ssh_key::PrivateKey;
 
 
   /// Load a private key from a plain text file. This function is for

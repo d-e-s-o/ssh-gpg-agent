@@ -3,16 +3,19 @@
 
 use anyhow::Context as _;
 use anyhow::Result;
+use anyhow::anyhow;
 
 use openssl::bn::BigNum;
 
-use ssh_agent_lib::proto::key_type::KeyTypeEnum;
-use ssh_agent_lib::proto::private_key::Ed25519PrivateKey;
-use ssh_agent_lib::proto::private_key::PrivateKey;
-use ssh_agent_lib::proto::private_key::RsaPrivateKey;
 use ssh_agent_lib::proto::signature::RSA_SHA2_256;
 use ssh_agent_lib::proto::signature::RSA_SHA2_512;
-use ssh_agent_lib::proto::signature::Signature;
+
+use ssh_key::Algorithm;
+use ssh_key::HashAlg;
+use ssh_key::Signature;
+use ssh_key::private::Ed25519Keypair;
+use ssh_key::private::KeypairData;
+use ssh_key::private::RsaKeypair;
 
 use ring::rand::SystemRandom;
 use ring::rsa::KeyPairComponents as RsaKeyPairComponents;
@@ -24,9 +27,9 @@ use ring::signature::RsaPublicKeyComponents;
 
 
 /// Sign a given blob of data with the given ed25519 private key.
-fn sign_ed25519(key: &Ed25519PrivateKey, data: &[u8]) -> Result<Vec<u8>> {
-  let public = &key.enc_a;
-  let seed = &key.k_enc_a;
+fn sign_ed25519(key: &Ed25519Keypair, data: &[u8]) -> Result<Vec<u8>> {
+  let seed = key.private.as_ref();
+  let public = key.public.as_ref();
 
   let key_pair = Ed25519KeyPair::from_seed_and_public_key(seed, public)
     .with_context(|| "failed to create ed25519 key pair")?;
@@ -36,7 +39,7 @@ fn sign_ed25519(key: &Ed25519PrivateKey, data: &[u8]) -> Result<Vec<u8>> {
 }
 
 /// Sign a given blob of data with the given RSA private key.
-fn sign_rsa(key: &RsaPrivateKey, flags: u32, data: &[u8]) -> Result<Vec<u8>> {
+fn sign_rsa(key: &RsaKeypair, flags: u32, data: &[u8]) -> Result<Vec<u8>> {
   let padding_alg = if flags & RSA_SHA2_512 != 0 {
     &RSA_PKCS1_SHA512
   } else if flags & RSA_SHA2_256 != 0 {
@@ -45,22 +48,13 @@ fn sign_rsa(key: &RsaPrivateKey, flags: u32, data: &[u8]) -> Result<Vec<u8>> {
     unimplemented!()
   };
 
-  let RsaPrivateKey {
-    n,
-    e,
-    d,
-    iqmp,
-    p,
-    q,
-  } = key;
-
   let one = BigNum::from_u32(1)?;
-  let n = BigNum::from_slice(n)?;
-  let e = BigNum::from_slice(e)?;
-  let d = BigNum::from_slice(d)?;
-  let p = BigNum::from_slice(p)?;
-  let q = BigNum::from_slice(q)?;
-  let q_inv = BigNum::from_slice(iqmp)?;
+  let n = BigNum::from_slice(key.public.n.as_bytes())?;
+  let e = BigNum::from_slice(key.public.e.as_bytes())?;
+  let d = BigNum::from_slice(key.private.d.as_bytes())?;
+  let p = BigNum::from_slice(key.private.p.as_bytes())?;
+  let q = BigNum::from_slice(key.private.q.as_bytes())?;
+  let q_inv = BigNum::from_slice(key.private.iqmp.as_bytes())?;
   let d_p = &d % &(&p - &one);
   let d_q = &d % &(&q - &one);
 
@@ -92,35 +86,44 @@ pub trait Signer {
   fn sign(&self, flags: u32, data: &[u8]) -> Result<Signature>;
 }
 
-impl Signer for PrivateKey {
+impl Signer for KeypairData {
   /// Sign data using a private key.
   fn sign(&self, flags: u32, data: &[u8]) -> Result<Signature> {
     // We use the ring crate for signing. In order to sign something we
     // first need to convert our private key into a key pair that the
     // crate can work with.
-    let (alg, sig) = match self {
-      Self::Dss { .. } | Self::EcDsa { .. } | Self::SkEcDsa { .. } | Self::SkEd25519 { .. } => {
-        unimplemented!()
-      },
+    let sig = match self {
       Self::Rsa(key) => {
         let algorithm = if flags & RSA_SHA2_512 != 0 {
-          "rsa-sha2-512"
+          Algorithm::Rsa {
+            hash: Some(HashAlg::Sha512),
+          }
         } else if flags & RSA_SHA2_256 != 0 {
-          "rsa-sha2-256"
+          Algorithm::Rsa {
+            hash: Some(HashAlg::Sha256),
+          }
         } else {
-          "ssh-rsa"
+          Algorithm::Rsa { hash: None }
         };
         let signature = sign_rsa(key, flags, data).context("failed to sign request using RSA")?;
 
-        (algorithm.to_string(), signature)
+        Signature::new(algorithm, signature).context("failed to create signature")?
       },
-      Self::Ed25519(key) => (self.key_type(), sign_ed25519(key, data)?),
+      Self::Ed25519(key) => {
+        let signature = sign_ed25519(key, data)?;
+
+        Signature::new(Algorithm::Ed25519, signature).context("failed to create signature")?
+      },
+      _ => {
+        let result = Err(anyhow!("failed to sign data"));
+        if let Ok(alg) = self.algorithm() {
+          return result.with_context(|| format!("{alg} keys are unsupported"))
+        } else {
+          return result.context("encountered unsupported key type")
+        }
+      },
     };
 
-    let sig = Signature {
-      algorithm: alg,
-      blob: sig,
-    };
     Ok(sig)
   }
 }
@@ -131,6 +134,8 @@ mod test {
   use super::*;
 
   use ssh_agent_lib::proto::PublicKey;
+
+  use ssh_key::PrivateKey;
 
   use ring::signature::RSA_PKCS1_2048_8192_SHA256;
 
@@ -147,7 +152,7 @@ mod test {
     let privkey = PrivateKey::from_pem(privkey)?;
 
     let data = "test-data";
-    let _sig = privkey.sign(0, data.as_bytes())?;
+    let _sig = privkey.key_data().sign(0, data.as_bytes())?;
     Ok(())
   }
 
@@ -160,7 +165,7 @@ mod test {
     let privkey = PrivateKey::from_pem(privkey)?;
 
     let data = "test-data";
-    let sig = privkey.sign(RSA_SHA2_256, data.as_bytes())?;
+    let sig = privkey.key_data().sign(RSA_SHA2_256, data.as_bytes())?;
 
     let pubkey = load_public_key("tests/valid_keys/rsa2048.pub")?;
     let pubkey = AuthorizedKey::from_pem(pubkey)?.key;
@@ -172,7 +177,7 @@ mod test {
       },
       _ => unreachable!(),
     };
-    let () = pubkey.verify(&RSA_PKCS1_2048_8192_SHA256, data.as_bytes(), &sig.blob)?;
+    let () = pubkey.verify(&RSA_PKCS1_2048_8192_SHA256, data.as_bytes(), sig.as_bytes())?;
 
     Ok(())
   }

@@ -38,8 +38,10 @@ use ssh_agent_lib::proto::message::Identity;
 use ssh_agent_lib::proto::message::Message;
 use ssh_agent_lib::proto::message::SignRequest;
 use ssh_agent_lib::proto::message::SignatureBlob;
-use ssh_agent_lib::proto::private_key::PrivateKey;
 use ssh_agent_lib::proto::public_key::PublicKey;
+use ssh_agent_lib::proto::signature::Signature;
+
+use ssh_key::PrivateKey as SshPrivateKey;
 
 use tokio::net::UnixListener;
 use tokio::runtime::Builder;
@@ -147,11 +149,19 @@ impl GpgKeyAgent {
       let path = result?;
       info!("found matching private key at `{}`", path.display());
 
-      let key = PrivateKey::from_pem(load_private_key(&path)?)?;
+      let key = SshPrivateKey::from_pem(load_private_key(&path)?)?;
       let sig = key
+        .key_data()
         .sign(request.flags, &request.data)
         .with_context(|| "failed to sign request data")?;
-      let blob = sig
+
+      // The agent protocol has its own idea of what a signature looks
+      // like.
+      let signature = Signature {
+        algorithm: sig.algorithm().to_string(),
+        blob: sig.as_bytes().to_vec(),
+      };
+      let blob = signature
         .to_blob()
         .with_context(|| "failed to serialized signature")?;
       Ok(blob)

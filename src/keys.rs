@@ -8,16 +8,13 @@ use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
 
-use ssh_agent_lib::proto::private_key::Ed25519PrivateKey;
-use ssh_agent_lib::proto::private_key::PrivateKey;
-use ssh_agent_lib::proto::private_key::RsaPrivateKey;
 use ssh_agent_lib::proto::public_key::Ed25519PublicKey;
 use ssh_agent_lib::proto::public_key::PublicKey;
 use ssh_agent_lib::proto::public_key::RsaPublicKey;
 
+use ssh_key::Algorithm;
 use ssh_key::PrivateKey as SshPrivateKey;
 use ssh_key::PublicKey as SshPublicKey;
-use ssh_key::private::KeypairData;
 use ssh_key::public::KeyData;
 
 use crate::files::PemPrivateKey;
@@ -49,38 +46,6 @@ fn convert_pub(key: KeyData) -> Result<PublicKey> {
 }
 
 
-/// Convert an `ssh-key` `KeypairData` into an `ssh_agent` `PrivateKey`.
-fn convert_priv(key: &KeypairData) -> Result<PrivateKey> {
-  let key = match key {
-    KeypairData::Rsa(key) => {
-      let rsa = RsaPrivateKey {
-        n: key.public.n.as_bytes().to_vec(),
-        e: key.public.e.as_bytes().to_vec(),
-        d: key.private.d.as_bytes().to_vec(),
-        iqmp: key.private.iqmp.as_bytes().to_vec(),
-        p: key.private.p.as_bytes().to_vec(),
-        q: key.private.q.as_bytes().to_vec(),
-      };
-      PrivateKey::Rsa(rsa)
-    },
-    KeypairData::Ed25519(key) => {
-      let ed25519 = Ed25519PrivateKey {
-        enc_a: key.public.as_ref().to_vec(),
-        k_enc_a: key.private.as_ref().to_vec(),
-      };
-      PrivateKey::Ed25519(ed25519)
-    },
-    other => {
-      let algorithm = other
-        .algorithm()
-        .with_context(|| "failed to determine private key type")?;
-      bail!("unsupported private key type: {algorithm}")
-    },
-  };
-  Ok(key)
-}
-
-
 /// A public key along with the comment stored with it.
 #[derive(Debug)]
 pub struct AuthorizedKey {
@@ -99,14 +64,13 @@ where
   fn from_pem(pem_key: K) -> Result<Self>;
 }
 
-impl FromPem<PemPrivateKey> for PrivateKey {
+impl FromPem<PemPrivateKey> for SshPrivateKey {
   fn from_pem(pem_key: PemPrivateKey) -> Result<Self> {
     let data = Vec::<_>::from(pem_key);
     // The `ssh-key` crate rejects white space around the PEM
     // boundaries, but we want to be lenient with input, so strip
     // whatever the file may contain.
-    let key = SshPrivateKey::from_openssh(data.trim_ascii())
-      .with_context(|| "failed to parse private key")?;
+    let key = Self::from_openssh(data.trim_ascii()).context("failed to parse private key")?;
 
     // `ssh-key` hands us an encrypted key as is, so we have to check
     // for this case ourselves.
@@ -115,7 +79,18 @@ impl FromPem<PemPrivateKey> for PrivateKey {
       return err.with_context(|| "failed to read PEM encoded private key");
     }
 
-    convert_priv(key.key_data())
+    // Only keys we are actually able to sign with are of any use to
+    // us.
+    let algorithm = key
+      .key_data()
+      .algorithm()
+      .context("failed to determine private key type")?;
+    match algorithm {
+      Algorithm::Rsa { .. } | Algorithm::Ed25519 => (),
+      algorithm => bail!("unsupported private key type: {algorithm}"),
+    }
+
+    Ok(key)
   }
 }
 
@@ -155,8 +130,10 @@ mod test {
   fn public_key_equivalence() {
     for name in ["ed25519", "rsa2048"] {
       let privkey = load_unencrypted_private_key(format!("tests/valid_keys/{name}")).unwrap();
-      let privkey = PrivateKey::from_pem(privkey).unwrap();
-      let blob = PublicKey::from(privkey)
+      let privkey = SshPrivateKey::from_pem(privkey).unwrap();
+      let blob = convert_pub(privkey.public_key().key_data().clone())
+        .context("failed to convert private key's public key")
+        .unwrap()
         .to_blob()
         .with_context(|| "failed to serialize private key's public key")
         .unwrap();
