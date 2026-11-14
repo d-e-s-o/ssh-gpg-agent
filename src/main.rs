@@ -33,15 +33,15 @@ use ssh_agent_lib::agent::Agent;
 use ssh_agent_lib::agent::Session;
 use ssh_agent_lib::async_trait;
 use ssh_agent_lib::proto::Blob;
-use ssh_agent_lib::proto::from_bytes;
 use ssh_agent_lib::proto::message::Identity;
 use ssh_agent_lib::proto::message::Message;
 use ssh_agent_lib::proto::message::SignRequest;
 use ssh_agent_lib::proto::message::SignatureBlob;
-use ssh_agent_lib::proto::public_key::PublicKey;
 use ssh_agent_lib::proto::signature::Signature;
 
 use ssh_key::PrivateKey as SshPrivateKey;
+use ssh_key::PublicKey as SshPublicKey;
+use ssh_key::public::KeyData;
 
 use tokio::net::UnixListener;
 use tokio::runtime::Builder;
@@ -110,8 +110,8 @@ impl GpgKeyAgent {
       let (AuthorizedKey { key, comment }, path) = result?;
       info!("found public key at `{}`", path.display());
 
-      let blob = key
-        .to_blob()
+      let blob = SshPublicKey::from(key)
+        .to_bytes()
         .with_context(|| "failed to serialize public key")?;
       let ident = Identity {
         pubkey_blob: blob,
@@ -124,7 +124,7 @@ impl GpgKeyAgent {
   }
 
   /// Load the private key corresponding to the given public key.
-  fn find_private_key(&self, pubkey: &PublicKey) -> Option<Result<PathBuf>> {
+  fn find_private_key(&self, pubkey: &KeyData) -> Option<Result<PathBuf>> {
     match self.public_keys() {
       Ok(mut keys) => keys.find_map(|x| match x {
         Ok((key, path)) => {
@@ -142,10 +142,10 @@ impl GpgKeyAgent {
 
   /// Handle a sign request.
   fn sign(&self, request: &SignRequest) -> Result<SignatureBlob> {
-    let pubkey = from_bytes::<PublicKey>(&request.pubkey_blob)
+    let pubkey = SshPublicKey::from_bytes(&request.pubkey_blob)
       .with_context(|| "failed to convert public key blob back to public key")?;
 
-    if let Some(result) = self.find_private_key(&pubkey) {
+    if let Some(result) = self.find_private_key(pubkey.key_data()) {
       let path = result?;
       info!("found matching private key at `{}`", path.display());
 

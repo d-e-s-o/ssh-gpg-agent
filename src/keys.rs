@@ -8,10 +8,6 @@ use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
 
-use ssh_agent_lib::proto::public_key::Ed25519PublicKey;
-use ssh_agent_lib::proto::public_key::PublicKey;
-use ssh_agent_lib::proto::public_key::RsaPublicKey;
-
 use ssh_key::Algorithm;
 use ssh_key::PrivateKey as SshPrivateKey;
 use ssh_key::PublicKey as SshPublicKey;
@@ -21,28 +17,12 @@ use crate::files::PemPrivateKey;
 use crate::files::PemPublicKey;
 
 
-/// Convert an `ssh-key` `KeyData` into an `ssh_agent` `PublicKey`.
-fn convert_pub(key: KeyData) -> Result<PublicKey> {
-  let key = match key {
-    KeyData::Rsa(data) => {
-      let rsa = RsaPublicKey {
-        e: data.e.as_bytes().to_vec(),
-        n: data.n.as_bytes().to_vec(),
-      };
-      PublicKey::Rsa(rsa)
-    },
-    KeyData::Ed25519(data) => {
-      let ed25519 = Ed25519PublicKey {
-        enc_a: data.as_ref().to_vec(),
-      };
-      PublicKey::Ed25519(ed25519)
-    },
-    other => {
-      let algorithm = other.algorithm();
-      bail!("unsupported public key type: {algorithm}")
-    },
-  };
-  Ok(key)
+/// Check that we are able to sign with a key using the given algorithm.
+fn check_algorithm(algorithm: Algorithm, kind: &str) -> Result<()> {
+  match algorithm {
+    Algorithm::Rsa { .. } | Algorithm::Ed25519 => Ok(()),
+    algorithm => bail!("unsupported {kind} key type: {algorithm}"),
+  }
 }
 
 
@@ -50,7 +30,7 @@ fn convert_pub(key: KeyData) -> Result<PublicKey> {
 #[derive(Debug)]
 pub struct AuthorizedKey {
   /// The public key.
-  pub key: PublicKey,
+  pub key: KeyData,
   /// The key's comment.
   pub comment: String,
 }
@@ -85,10 +65,7 @@ impl FromPem<PemPrivateKey> for SshPrivateKey {
       .key_data()
       .algorithm()
       .context("failed to determine private key type")?;
-    match algorithm {
-      Algorithm::Rsa { .. } | Algorithm::Ed25519 => (),
-      algorithm => bail!("unsupported private key type: {algorithm}"),
-    }
+    let () = check_algorithm(algorithm, "private")?;
 
     Ok(key)
   }
@@ -103,10 +80,11 @@ impl FromPem<PemPublicKey> for AuthorizedKey {
     // whatever the file may contain.
     let key =
       SshPublicKey::from_openssh(string.trim()).with_context(|| "failed to parse public key")?;
+    let () = check_algorithm(key.algorithm(), "public")?;
     let comment = key.comment().to_owned();
 
     let slf = Self {
-      key: convert_pub(key.into())?,
+      key: key.key_data().clone(),
       comment,
     };
     Ok(slf)
@@ -118,10 +96,16 @@ impl FromPem<PemPublicKey> for AuthorizedKey {
 mod test {
   use super::*;
 
-  use ssh_agent_lib::proto::Blob;
-
   use crate::files::load_public_key;
   use crate::files::test::load_unencrypted_private_key;
+
+
+  /// Serialize key data into the blob an agent reports for an identity.
+  fn key_blob(key: &KeyData) -> Vec<u8> {
+    SshPublicKey::from(key.clone())
+      .to_bytes()
+      .expect("failed to serialize public key")
+  }
 
 
   /// Verify that the public key contained in a private key is identical
@@ -131,18 +115,25 @@ mod test {
     for name in ["ed25519", "rsa2048"] {
       let privkey = load_unencrypted_private_key(format!("tests/valid_keys/{name}")).unwrap();
       let privkey = SshPrivateKey::from_pem(privkey).unwrap();
-      let blob = convert_pub(privkey.public_key().key_data().clone())
-        .context("failed to convert private key's public key")
-        .unwrap()
-        .to_blob()
-        .with_context(|| "failed to serialize private key's public key")
-        .unwrap();
 
       let pubkey = load_public_key(format!("tests/valid_keys/{name}.pub")).unwrap();
       let pubkey = AuthorizedKey::from_pem(pubkey).unwrap().key;
-      let expected = pubkey.to_blob().expect("failed to serialize public key");
 
-      assert_eq!(blob, expected, "public key mismatch for `{name}`");
+      assert_eq!(
+        key_blob(privkey.public_key().key_data()),
+        key_blob(&pubkey),
+        "public key blob mismatch for `{name}`"
+      );
+
+      // A key only ever travels the protocol as a blob, so make sure
+      // the one we hand out decodes back into the key it came from.
+      let decoded =
+        SshPublicKey::from_bytes(&key_blob(&pubkey)).expect("failed to read public key blob");
+      assert_eq!(
+        decoded.key_data(),
+        &pubkey,
+        "public key blob round trip mismatch for `{name}`"
+      );
     }
   }
 }

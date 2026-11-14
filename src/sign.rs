@@ -133,9 +133,8 @@ impl Signer for KeypairData {
 mod test {
   use super::*;
 
-  use ssh_agent_lib::proto::PublicKey;
-
   use ssh_key::PrivateKey;
+  use ssh_key::public::KeyData;
 
   use ring::signature::RSA_PKCS1_2048_8192_SHA256;
 
@@ -170,10 +169,10 @@ mod test {
     let pubkey = load_public_key("tests/valid_keys/rsa2048.pub")?;
     let pubkey = AuthorizedKey::from_pem(pubkey)?.key;
     let pubkey = match &pubkey {
-      PublicKey::Rsa(pubkey) => RsaPublicKeyComponents {
+      KeyData::Rsa(pubkey) => RsaPublicKeyComponents {
         // Remove leading zero. Yeah...
-        n: &pubkey.n[1..],
-        e: &pubkey.e,
+        n: &pubkey.n.as_bytes()[1..],
+        e: pubkey.e.as_bytes(),
       },
       _ => unreachable!(),
     };
