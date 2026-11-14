@@ -10,7 +10,6 @@ mod sign;
 
 use std::env::args_os;
 use std::env::temp_dir;
-use std::error::Error as StdError;
 use std::ffi::OsString;
 use std::fs::remove_file;
 use std::io::Error as IoError;
@@ -26,21 +25,17 @@ use anyhow::bail;
 
 use dirs::home_dir;
 
-use log::debug;
 use log::info;
 
-use ssh_agent_lib::agent::Agent;
 use ssh_agent_lib::agent::Session;
+use ssh_agent_lib::agent::listen;
 use ssh_agent_lib::async_trait;
-use ssh_agent_lib::proto::Blob;
-use ssh_agent_lib::proto::message::Identity;
-use ssh_agent_lib::proto::message::Message;
-use ssh_agent_lib::proto::message::SignRequest;
-use ssh_agent_lib::proto::message::SignatureBlob;
-use ssh_agent_lib::proto::signature::Signature;
+use ssh_agent_lib::error::AgentError;
+use ssh_agent_lib::proto::Identity;
+use ssh_agent_lib::proto::SignRequest;
 
 use ssh_key::PrivateKey as SshPrivateKey;
-use ssh_key::PublicKey as SshPublicKey;
+use ssh_key::Signature;
 use ssh_key::public::KeyData;
 
 use tokio::net::UnixListener;
@@ -110,11 +105,8 @@ impl GpgKeyAgent {
       let (AuthorizedKey { key, comment }, path) = result?;
       info!("found public key at `{}`", path.display());
 
-      let blob = SshPublicKey::from(key)
-        .to_bytes()
-        .with_context(|| "failed to serialize public key")?;
       let ident = Identity {
-        pubkey_blob: blob,
+        pubkey: key,
         comment,
       };
 
@@ -141,11 +133,8 @@ impl GpgKeyAgent {
   }
 
   /// Handle a sign request.
-  fn sign(&self, request: &SignRequest) -> Result<SignatureBlob> {
-    let pubkey = SshPublicKey::from_bytes(&request.pubkey_blob)
-      .with_context(|| "failed to convert public key blob back to public key")?;
-
-    if let Some(result) = self.find_private_key(pubkey.key_data()) {
+  fn sign_request(&self, request: &SignRequest) -> Result<Signature> {
+    if let Some(result) = self.find_private_key(&request.pubkey) {
       let path = result?;
       info!("found matching private key at `{}`", path.display());
 
@@ -154,50 +143,28 @@ impl GpgKeyAgent {
         .key_data()
         .sign(request.flags, &request.data)
         .with_context(|| "failed to sign request data")?;
-
-      // The agent protocol has its own idea of what a signature looks
-      // like.
-      let signature = Signature {
-        algorithm: sig.algorithm().to_string(),
-        blob: sig.as_bytes().to_vec(),
-      };
-      let blob = signature
-        .to_blob()
-        .with_context(|| "failed to serialized signature")?;
-      Ok(blob)
+      Ok(sig)
     } else {
       let err = Err(anyhow!("identity not found"));
       err.with_context(|| "failed to create signature")
     }
   }
-
-  /// Handle a message to the agent.
-  fn handle_message(&self, request: Message) -> Result<Message> {
-    debug!("Request: {request:?}");
-    let response = match request {
-      Message::RequestIdentities => Ok(Message::IdentitiesAnswer(self.identities()?)),
-      Message::SignRequest(request) => Ok(Message::SignResponse(self.sign(&request)?)),
-      _ => {
-        let err = Err(anyhow!("received unsupported message: {request:?}"));
-        err.with_context(|| "failed to handle agent request")
-      },
-    };
-    debug!("Response: {response:?}");
-    response
-  }
 }
 
+// Note that `ssh-agent-lib` takes care of logging an error we return
+// and of replying with a `Failure` message for us.
 #[async_trait]
 impl Session for GpgKeyAgent {
-  async fn handle(&mut self, message: Message) -> StdResult<Message, Box<dyn StdError>> {
-    let message = self.handle_message(message)?;
-    Ok(message)
+  async fn request_identities(&mut self) -> StdResult<Vec<Identity>, AgentError> {
+    self
+      .identities()
+      .map_err(|err| AgentError::Other(err.into()))
   }
-}
 
-impl Agent for GpgKeyAgent {
-  fn new_session(&mut self) -> impl Session {
-    self.clone()
+  async fn sign(&mut self, request: SignRequest) -> StdResult<Signature, AgentError> {
+    self
+      .sign_request(&request)
+      .map_err(|err| AgentError::Other(err.into()))
   }
 }
 
@@ -221,7 +188,7 @@ fn run(key_dir: PathBuf) -> Result<()> {
     .with_context(|| format!("failed to bind `{}`", socket.display()))?;
 
   runtime
-    .block_on(agent.listen(listener))
+    .block_on(listen(listener, agent))
     .with_context(|| "failed to start agent")?;
   Ok(())
 }
