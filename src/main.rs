@@ -32,6 +32,7 @@ use ssh_agent_lib::agent::listen;
 use ssh_agent_lib::async_trait;
 use ssh_agent_lib::error::AgentError;
 use ssh_agent_lib::proto::Identity;
+use ssh_agent_lib::proto::PublicCredential;
 use ssh_agent_lib::proto::SignRequest;
 
 use ssh_key::PrivateKey as SshPrivateKey;
@@ -106,7 +107,7 @@ impl GpgKeyAgent {
       info!("found public key at `{}`", path.display());
 
       let ident = Identity {
-        pubkey: key,
+        credential: PublicCredential::Key(key),
         comment,
       };
 
@@ -134,7 +135,14 @@ impl GpgKeyAgent {
 
   /// Handle a sign request.
   fn sign_request(&self, request: &SignRequest) -> Result<Signature> {
-    if let Some(result) = self.find_private_key(&request.pubkey) {
+    // We only ever report plain public keys as our identities, so
+    // signing anything else cannot work.
+    let pubkey = match &request.credential {
+      PublicCredential::Key(pubkey) => pubkey,
+      PublicCredential::Cert(_) => bail!("signing with a certificate is not supported"),
+    };
+
+    if let Some(result) = self.find_private_key(pubkey) {
       let path = result?;
       info!("found matching private key at `{}`", path.display());
 
