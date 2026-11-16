@@ -1,5 +1,5 @@
-Unreleased
-----------
+0.1.7
+-----
 - Added `-h`/`--help` and `-V`/`--version` arguments to the program
 - Replaced the `ssh-keys` dependency with `ssh-key`
 - Dropped support for private keys in the legacy PKCS#1 PEM format
